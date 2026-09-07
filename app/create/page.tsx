@@ -1,0 +1,320 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Assets } from "@lucid-evolution/lucid";
+import Link from "next/link";
+import { useWallet } from "@/app/providers";
+import {
+  CARDANO_NETWORK,
+  EXPLORER_URL,
+  runtimeReadiness,
+} from "@/lib/config";
+import type { CreationReview } from "@/lib/transactions";
+import {
+  DAY_MS,
+  formatAda,
+  formatUtc,
+  releaseAt,
+  shortHash,
+  SITE_FEE_LOVELACE,
+} from "@/lib/product";
+import {
+  downloadManifest,
+  storeManifest,
+  type VaultManifest,
+} from "@/lib/manifest";
+
+type ReleaseMode = "fixed" | "bearer";
+type WalletAsset = { unit: string; quantity: bigint };
+
+export default function CreateVault() {
+  const wallet = useWallet();
+  const [step, setStep] = useState(1);
+  const panelRef = useRef<HTMLElement>(null);
+  const previousStep = useRef(step);
+  useEffect(() => {
+    if (previousStep.current === step) return;
+    previousStep.current = step;
+    const heading = panelRef.current?.querySelector("h2");
+    if (!heading) return;
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [step]);
+  const [periodDays, setPeriodDays] = useState(7);
+  const [misses, setMisses] = useState(4);
+  const [ada, setAda] = useState("25");
+  const [livenessAddress, setLivenessAddress] = useState("");
+  const [releaseMode, setReleaseMode] = useState<ReleaseMode>("bearer");
+  const [destination, setDestination] = useState("");
+  const [commitment, setCommitment] = useState("");
+  const [walletAssets, setWalletAssets] = useState<WalletAsset[]>([]);
+  const [protectedTokenUnits, setProtectedTokenUnits] = useState<string[]>([]);
+  const [review, setReview] = useState<CreationReview | null>(null);
+  const [reviewKey, setReviewKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submittedHash, setSubmittedHash] = useState<string | null>(null);
+  const [createdManifest, setCreatedManifest] = useState<VaultManifest | null>(null);
+  const [clock] = useState(() => Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!wallet.connection) {
+      return;
+    }
+    wallet.connection.lucid.wallet().getUtxos().then((utxos) => {
+      const totals = new Map<string, bigint>();
+      for (const utxo of utxos) {
+        for (const [unit, quantity] of Object.entries(utxo.assets)) {
+          if (unit !== "lovelace") {
+            totals.set(unit, (totals.get(unit) ?? 0n) + quantity);
+          }
+        }
+      }
+      if (!cancelled) {
+        setWalletAssets(
+          [...totals].map(([unit, quantity]) => ({ unit, quantity })),
+        );
+      }
+    }).catch(() => {
+      if (!cancelled) setWalletAssets([]);
+    });
+    return () => { cancelled = true; };
+  }, [wallet.connection]);
+
+  const periodMs = periodDays * DAY_MS;
+  const expectedRelease = releaseAt(clock, periodMs, misses);
+  const selectedAssets = useMemo<Assets>(() => {
+    const adaNumber = Number(ada || 0);
+    const lovelaceNumber = Math.round(adaNumber * 1_000_000);
+    const assets: Assets = {
+      lovelace:
+        Number.isFinite(lovelaceNumber) && Number.isSafeInteger(lovelaceNumber)
+          ? BigInt(Math.max(0, lovelaceNumber))
+          : 0n,
+    };
+    for (const unit of protectedTokenUnits) {
+      const asset = walletAssets.find((candidate) => candidate.unit === unit);
+      if (asset) assets[unit] = asset.quantity;
+    }
+    return assets;
+  }, [ada, protectedTokenUnits, walletAssets]);
+  const configurationKey = useMemo(
+    () => JSON.stringify([
+      periodDays,
+      misses,
+      livenessAddress,
+      releaseMode,
+      destination,
+      commitment,
+      Object.entries(selectedAssets).map(([unit, quantity]) => [unit, quantity.toString()]),
+    ]),
+    [
+      commitment,
+      destination,
+      livenessAddress,
+      misses,
+      periodDays,
+      releaseMode,
+      selectedAssets,
+    ],
+  );
+  const activeReview = reviewKey === configurationKey ? review : null;
+
+  async function hashFile(file: File | undefined) {
+    if (!file) return;
+    const hash = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    setCommitment(
+      [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join(""),
+    );
+  }
+
+  async function prepareTransaction() {
+    if (!wallet.connection) {
+      setError("Connect Eternl before constructing the transaction.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const { buildCreation } = await import("@/lib/transactions");
+      const rule = releaseMode === "fixed"
+        ? { kind: "fixed" as const, address: destination }
+        : { kind: "bearer" as const };
+      const built = await buildCreation(wallet.connection.lucid, {
+        protectedAssets: selectedAssets,
+        livenessAddress,
+        checkInPeriodMs: periodMs,
+        missesToRelease: misses,
+        releaseRule: rule,
+        payloadCommitment: commitment || undefined,
+      });
+      setReview(built);
+      setReviewKey(configurationKey);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Transaction construction failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitTransaction() {
+    if (!activeReview || !wallet.connection) return;
+    const reviewed = activeReview;
+    setBusy(true);
+    setError(null);
+    try {
+      const { signAndSubmitCreation } = await import("@/lib/transactions");
+      const txHash = await signAndSubmitCreation(reviewed);
+      setSubmittedHash(txHash);
+      const reviewedMode = reviewed.releaseRule.kind;
+      const created: VaultManifest = {
+        version: 3,
+        network: CARDANO_NETWORK,
+        creationTx: txHash,
+        seed: { txHash: reviewed.seed.txHash, outputIndex: reviewed.seed.outputIndex },
+        receiptName: reviewed.contract.receiptName,
+        terminalReceiptName: reviewed.contract.terminalReceiptName,
+        recoveryReceiptName: reviewed.contract.recoveryReceiptName,
+        policyId: reviewed.contract.policyId,
+        receiptUnit: reviewed.contract.receiptUnit,
+        terminalReceiptUnit: reviewed.contract.terminalReceiptUnit,
+        validatorAddress: reviewed.contract.address,
+        ownerKeyHash: reviewed.ownerKeyHash,
+        livenessKeyHash: reviewed.livenessKeyHash,
+        checkInPeriodMs: reviewed.checkInPeriodMs,
+        missesToRelease: reviewed.missesToRelease,
+        lastCheckInAtMs: reviewed.lastCheckInAt,
+        releaseAtMs: reviewed.releaseAt,
+        releaseMode: reviewedMode,
+        destination:
+          reviewed.releaseRule.kind === "fixed"
+            ? reviewed.releaseRule.address
+            : undefined,
+        recoveryUnit:
+          reviewed.releaseRule.kind === "bearer"
+            ? `${reviewed.releaseRule.policyId}${reviewed.releaseRule.assetName}`
+            : undefined,
+        payloadCommitment: reviewed.payloadCommitment,
+      };
+      // Save immediately after submission. If the user opens the explorer or
+      // closes the tab while confirmation is pending, the plan can still be
+      // reopened and verified from Cardano.
+      storeManifest(created);
+      const confirmed = await wallet.connection.lucid.awaitTx(txHash);
+      if (!confirmed) throw new Error("Transaction was submitted but confirmation was not observed.");
+      setCreatedManifest(created);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Eternl did not submit the transaction.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleProtected(unit: string) {
+    setProtectedTokenUnits((current) =>
+      current.includes(unit)
+        ? current.filter((candidate) => candidate !== unit)
+        : [...current, unit],
+    );
+  }
+
+  return (
+    <div className="create-shell page-shell">
+      <header className="page-title compact-title">
+        <p className="eyebrow">CREATE A HANDOFF PLAN · {CARDANO_NETWORK.toUpperCase()}</p>
+        <h1>Decide what happens if you stop checking in.</h1>
+        <p>Choose what to protect, how often you will check in, and how it can be received later. You will review every detail before Eternl asks you to approve anything.</p>
+      </header>
+
+      {wallet.error && <div className="error-banner">{wallet.error}</div>}
+      {error && <div className="error-banner">{error}</div>}
+
+      <div className="wizard-layout">
+        <aside className="wizard-nav" aria-label="Creation steps">
+          {["Protect", "Choose recipient", "Review"].map((label, index) => (
+            <button
+              key={label}
+              aria-current={step === index + 1 ? "step" : undefined}
+              className={step === index + 1 ? "active" : step > index + 1 ? "complete" : ""}
+              onClick={() => setStep(index + 1)}
+            >
+              <span>{String(index + 1).padStart(2, "0")}</span>{label}
+            </button>
+          ))}
+          <div className="network-plate">
+            <span>CARDANO NETWORK</span><strong>{CARDANO_NETWORK}</strong>
+            <small>{runtimeReadiness.canCreate ? "Ready to create plans" : "Review mode only"}</small>
+            <span className="plate-rule">ONE-TIME SETUP</span><strong>5 ADA</strong>
+            <span className="plate-rule">LATER CHECK-INS</span><strong>No site fee</strong>
+            <small>Normal Cardano network fees still apply.</small>
+          </div>
+        </aside>
+
+        <section className="wizard-panel" ref={panelRef}>
+          {step === 1 && (
+            <div className="form-section">
+              <div className="form-heading"><span>01</span><div><h2>What do you want to protect?</h2><p>Choose your assets and the wallet you will use for regular check-ins.</p></div></div>
+              <div className="connection-card">
+                <div><span>YOUR ETERNL WALLET</span><strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : "Not connected"}</strong></div>
+                {!wallet.connection && <button className="button secondary" onClick={wallet.connect}>Connect Eternl</button>}
+                {wallet.connection && <span className="ready-chip">CONNECTED</span>}
+              </div>
+              <div className="field-grid">
+                <label className="field"><span>ADA to protect</span><div className="input-suffix"><input type="number" min="5" step="1" value={ada} onChange={(e) => setAda(e.target.value)} /><b>ADA</b></div><small>The 5 ADA site fee and network fee are additional.</small></label>
+                <label className="field"><span>Check in every</span><div className="input-suffix"><input type="number" min="1" max="3650" value={periodDays} onChange={(e) => setPeriodDays(Number(e.target.value))} /><b>DAYS</b></div></label>
+                <label className="field"><span>How many check-ins may be missed?</span><div className="input-suffix"><input type="number" min="1" max="1000" value={misses} onChange={(e) => setMisses(Number(e.target.value))} /><b>MISSES</b></div><small>Your handoff becomes available after the {misses}{misses === 1 ? "st" : misses === 2 ? "nd" : misses === 3 ? "rd" : "th"} missed check-in.</small></label>
+                <label className="field"><span>Wallet used to check in</span><input value={livenessAddress} onChange={(e) => setLivenessAddress(e.target.value.trim())} placeholder="addr_test1… from another Eternl account" /><small>For safety, use a different account from the one creating the plan. This wallet can check in but cannot take your assets.</small></label>
+              </div>
+
+              {walletAssets.length > 0 && <div className="asset-picker"><div><h3>Tokens and NFTs</h3><p>Select any other Cardano assets you want to protect.</p></div><div className="asset-list">{walletAssets.map((asset) => <label key={asset.unit}><input type="checkbox" checked={protectedTokenUnits.includes(asset.unit)} onChange={() => toggleProtected(asset.unit)} /><span className="mono">{shortHash(asset.unit, 10)}</span><strong>{asset.quantity.toString()}</strong></label>)}</div></div>}
+
+              <label className="file-commit"><input type="file" onChange={(event) => hashFile(event.target.files?.[0])} /><span><strong>Add proof of a file (optional)</strong><small>The file never leaves your device. Only a fingerprint is recorded so someone can later prove that an unchanged copy existed. This plan does not store or deliver the file.</small></span>{commitment && <code>{shortHash(commitment, 12)}</code>}</label>
+              <div className="form-actions"><span /><button className="button primary" onClick={() => setStep(2)}>Choose who can receive it</button></div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="form-section">
+              <div className="form-heading"><span>02</span><div><h2>How should the handoff be received?</h2><p>You can name one Cardano address now, or use a recovery token without naming an address.</p></div></div>
+              <div className="mode-selector">
+                <button aria-pressed={releaseMode === "fixed"} className={releaseMode === "fixed" ? "selected" : ""} onClick={() => setReleaseMode("fixed")}><span>CHOOSE AN ADDRESS NOW</span><strong>Family or trusted wallet</strong><p>After the waiting period, the assets can only go to the exact Cardano address you enter.</p></button>
+                <button aria-pressed={releaseMode === "bearer"} className={releaseMode === "bearer" ? "selected" : ""} onClick={() => setReleaseMode("bearer")}><span>NO ADDRESS NAMED</span><strong>Recovery token</strong><p>Baton creates one unique token. After the waiting period, its holder chooses the receiving address.</p></button>
+              </div>
+              {releaseMode === "bearer" ? (
+                <div className="field full-field"><div className="field"><span>Your Baton recovery token</span><strong>Created automatically with this plan</strong><small>It will be placed in your wallet, outside the protected plan. Give it to someone you trust; whoever holds it after the waiting period can receive the assets.</small></div></div>
+              ) : (
+                <div className="field full-field"><label className="field"><span>Receiving Cardano address</span><input value={destination} onChange={(e) => setDestination(e.target.value.trim())} placeholder="addr_test1…" /><small>Check this carefully. The plan cannot replace or repair this address later.</small></label></div>
+              )}
+              <div className="risk-box"><strong>Choose enough time</strong><p>If you miss {misses} check-ins in a row, your handoff becomes available after {periodDays * misses} days—even if you are alive, traveling, ill, or unable to reach your check-in wallet.</p></div>
+              <div className="form-actions"><button className="button secondary" onClick={() => setStep(1)}>Back</button><button className="button primary" onClick={() => setStep(3)}>Review my plan</button></div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="form-section">
+              <div className="form-heading"><span>03</span><div><h2>Review your handoff plan</h2><p>Read each choice carefully. Eternl will not open until you ask to prepare the transaction.</p></div></div>
+              <div className="review-ledger">
+                <div><span>PROTECTED NOW</span><strong>{ada || "0"} ADA + {protectedTokenUnits.length} native asset{protectedTokenUnits.length === 1 ? "" : "s"}</strong></div>
+                <div><span>CHECK-IN PERIOD</span><strong>Every {periodDays} days</strong></div>
+                <div><span>ALLOWED MISSES</span><strong>{misses}</strong></div>
+                <div><span>HANDOFF AVAILABLE IF YOU DO NOT CHECK IN</span><strong>{formatUtc(expectedRelease)}</strong></div>
+                <div><span>WHO CAN RECEIVE</span><strong>{releaseMode === "bearer" ? "Holder of the recovery token" : shortHash(destination || "Not entered", 12)}</strong></div>
+                <div><span>ONE-TIME SITE FEE</span><strong>{formatAda(SITE_FEE_LOVELACE)}</strong></div>
+                <div><span>LATER SITE FEES</span><strong>None</strong></div>
+                <div><span>CAN THIS SITE TAKE YOUR ASSETS?</span><strong>No</strong></div>
+              </div>
+
+              {!runtimeReadiness.canCreate && <div className="launch-block"><span>REVIEW VERSION</span><strong>Creating a real plan is not enabled yet.</strong><p>You can review the full experience now. Signing will be enabled after the testnet setup and independent safety review are complete.</p></div>}
+
+              {activeReview && <div className="tx-review"><div className="tx-review-head"><span>READY FOR YOUR APPROVAL</span><strong>{shortHash(activeReview.transactionHash, 12)}</strong></div><dl><div><dt>Plan identity</dt><dd className="mono">{shortHash(activeReview.contract.policyId, 12)}</dd></div><div><dt>Protected Cardano address</dt><dd className="mono">{shortHash(activeReview.contract.address, 14)}</dd></div><div><dt>Exactly what will be protected</dt><dd>{formatAda(activeReview.protectedAssets.lovelace ?? 0n)} + {Object.keys(activeReview.protectedAssets).filter((unit) => unit !== "lovelace").length} other asset(s)</dd></div><div><dt>Check in every</dt><dd>{activeReview.checkInPeriodMs / DAY_MS} days</dd></div><div><dt>Misses allowed</dt><dd>{activeReview.missesToRelease}</dd></div><div><dt>Who can receive</dt><dd>{activeReview.releaseRule.kind === "fixed" ? shortHash(activeReview.releaseRule.address, 12) : `Recovery token ${shortHash(`${activeReview.releaseRule.policyId}${activeReview.releaseRule.assetName}`, 12)}`}</dd></div><div><dt>Plan starts</dt><dd>{formatUtc(activeReview.lastCheckInAt)}</dd></div><div><dt>Handoff available after</dt><dd>{formatUtc(activeReview.releaseAt)}</dd></div><div><dt>One-time site fee</dt><dd>{formatAda(activeReview.siteFeeLovelace)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Assets moved during check-in</dt><dd>None</dd></div></dl></div>}
+
+              {submittedHash ? <div className="success-box"><span>{createdManifest ? "CONFIRMED ON" : "PENDING ON"} {CARDANO_NETWORK.toUpperCase()}</span><h3>{createdManifest ? "Your handoff plan is protected." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submittedHash}`} target="_blank" rel="noreferrer">View Cardano transaction {shortHash(submittedHash, 12)} ↗</a>{createdManifest && <div className="success-actions"><button className="button secondary" onClick={() => downloadManifest(createdManifest)}>Download my plan file</button><Link className="button primary" href={`/vault/${submittedHash}`}>Open my handoff plan</Link></div>}<p>Keep the plan file in more than one safe place. It contains no private key or seed phrase, but it helps you return to and independently check this plan.</p></div> : <div className="form-actions"><button className="button secondary" onClick={() => { setStep(2); setReview(null); }}>Back</button>{activeReview ? <button className="button primary" disabled={busy} onClick={submitTransaction}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button> : <button className="button primary" disabled={busy || !runtimeReadiness.canCreate} onClick={prepareTransaction}>{busy ? "Preparing…" : "Prepare for Eternl"}</button>}</div>}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}

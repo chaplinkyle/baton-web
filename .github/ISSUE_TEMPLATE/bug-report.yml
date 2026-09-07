@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible non-sensitive interface defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not disclose vulnerabilities here. Use the private security advisory flow described in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Application release
+      placeholder: 0.1.0-rc.10
+    validations:
+      required: true
+  - type: dropdown
+    id: network
+    attributes:
+      label: Cardano network
+      options:
+        - Preprod
+        - Preview
+        - Local emulator
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Include the route, action, minimal steps, expected behavior, and actual behavior.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: This report contains no private keys, seed phrases, signed transactions, or sensitive exploit details.
+          required: true
