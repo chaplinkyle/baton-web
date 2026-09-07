@@ -289,6 +289,12 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .action-panel .action-release { border-color: #6f5838; color: var(--amber); background: var(--amber-soft); }
 .action-panel .connect-inline { margin-top: 24px; text-align: center; }
 .action-panel button:disabled { opacity: .5; cursor: wait; }
+.action-role { margin-bottom: 10px; padding: 7px 10px; border: 1px solid var(--signal-2); border-radius: 999px; color: var(--signal); background: var(--signal-soft); font-size: .76rem; font-weight: 650; text-align: center; }
+.action-guidance { padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--base); }
+.action-guidance strong { display: block; font-size: .92rem; }
+.action-guidance p { margin: 7px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.55; }
+.action-guidance .connect-inline { margin-top: 16px; }
+.action-guidance-error { border-color: var(--danger); background: var(--danger-soft); }
 .action-review { margin-top: 22px; padding: 27px; border: 1px solid var(--signal-2); border-radius: 8px; background: var(--panel); }
 .action-review h2 { margin: 0; font-size: 2rem; }
 .action-review dl { display: grid; grid-template-columns: 1fr 1fr; margin: 24px 0 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; }

@@ -208,7 +208,7 @@ export function rolesForManifest(
   return roles;
 }
 
-function combineWalletAssets(utxos: UTxO[]) {
+export function combineWalletAssets(utxos: UTxO[]) {
   return utxos.reduce<Assets>((combined, utxo) => {
     for (const [unit, quantity] of Object.entries(utxo.assets)) {
       combined[unit] = (combined[unit] ?? 0n) + quantity;

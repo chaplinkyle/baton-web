@@ -55,7 +55,12 @@ export default function PlansPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [transactionId, setTransactionId] = useState("");
   const [adding, setAdding] = useState(false);
-  const [clock] = useState(() => Date.now());
+  const [clock, setClock] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const refresh = useCallback(async () => {
     const browserGlobals = globalThis as typeof globalThis & { Buffer?: typeof Buffer };
@@ -168,8 +173,10 @@ export default function PlansPage() {
       <header className="page-title plans-title">
         <div>
           <p className="eyebrow">YOUR BATON PLANS</p>
-          <h1>Everything connected to this wallet.</h1>
-          <p>See plans you created, plans you keep active, and handoffs you may receive. Every result is checked against Cardano before it appears.</p>
+          <h1>{wallet.connection ? "Everything connected to this wallet." : "Your saved Baton plans."}</h1>
+          <p>{wallet.connection
+            ? "See plans you created, plans you keep active, and handoffs you may receive. Every result is checked against Cardano before it appears."
+            : "Connect Eternl to find plans tied to that account. Plans saved on this device stay visible, and every result is checked against Cardano."}</p>
         </div>
         <Link className="button primary" href="/create">Create a plan</Link>
       </header>
@@ -178,7 +185,11 @@ export default function PlansPage() {
         <div>
           <span>CONNECTED WALLET</span>
           <strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : "Connect Eternl to find your plans"}</strong>
-          <small>{wallet.connection ? "Searching Cardano and this device" : "Saved plans on this device remain visible"}</small>
+          <small>{wallet.connection
+            ? loading
+              ? "Searching Cardano and this device"
+              : `${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
+            : "Saved plans on this device remain visible"}</small>
         </div>
         {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>}
         {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading}>{loading ? "Checking…" : "Refresh"}</button>}

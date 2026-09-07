@@ -17,11 +17,19 @@ import {
   shortHash,
   vaultStatus,
 } from "@/lib/product";
+import { availablePlanActions } from "@/lib/plan-actions";
+import type { PlanRole } from "@/lib/plan-discovery";
 import type {
   ActionReview,
   CompletedVaultState,
   ConfirmedVaultState,
 } from "@/lib/vault-state";
+
+type WalletRoleResult = {
+  key: string;
+  roles: PlanRole[];
+  error: string | null;
+};
 
 const statusLabels = {
   active: "Your plan is protected",
@@ -41,11 +49,43 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [clock, setClock] = useState(() => Date.now());
+  const [walletRoleResult, setWalletRoleResult] = useState<WalletRoleResult | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const connection = wallet.connection;
+    if (!manifest || !connection) return;
+    const key = `${manifest.creationTx}:${connection.address}`;
+
+    void (async () => {
+      try {
+        const { combineWalletAssets, rolesForManifest } = await import("@/lib/plan-discovery");
+        const assets = combineWalletAssets(await connection.lucid.wallet().getUtxos());
+        if (!cancelled) {
+          setWalletRoleResult({
+            key,
+            roles: rolesForManifest(manifest, connection.paymentKeyHash, assets),
+            error: null,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setWalletRoleResult({
+            key,
+            roles: [],
+            error: "Baton could not confirm what this Eternl account can do. Reopen Eternl, confirm the selected account, and reconnect.",
+          });
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [manifest, wallet.connection]);
 
   const refresh = useCallback(async (knownManifest: VaultManifest) => {
     setLoading(true);
@@ -167,6 +207,35 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const missed = manifest && state
     ? missedCount(clock, state.lastCheckInAtMs, manifest.checkInPeriodMs, manifest.missesToRelease)
     : 0;
+  const walletRoleKey = manifest && wallet.connection
+    ? `${manifest.creationTx}:${wallet.connection.address}`
+    : null;
+  const currentWalletRoleResult = walletRoleKey && walletRoleResult?.key === walletRoleKey
+    ? walletRoleResult
+    : null;
+  const walletRoles = currentWalletRoleResult?.roles ?? [];
+  const checkingWalletRoles = Boolean(walletRoleKey && !currentWalletRoleResult);
+  const walletRoleError = currentWalletRoleResult?.error ?? null;
+  const actions = manifest
+    ? availablePlanActions(
+        status,
+        manifest.releaseMode,
+        walletRoles,
+        Boolean(wallet.connection),
+      )
+    : [];
+  const canPulse = actions.includes("pulse");
+  const canClose = actions.includes("close");
+  const canRelease = actions.includes("release");
+  const connectedRole = walletRoles.includes("owner")
+    ? "Connected as the owner"
+    : walletRoles.includes("check-in")
+      ? "Connected as the check-in wallet"
+      : walletRoles.includes("recovery holder")
+        ? "Recovery token found in this wallet"
+        : walletRoles.includes("recipient")
+          ? "Connected as the chosen recipient"
+          : null;
 
   return (
     <div className="page-shell vault-shell">
@@ -184,12 +253,47 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         <section className={`vault-status status-${status}`}>
           <div className="status-orbit"><span>{missed}</span><small>OF {manifest.missesToRelease}<br />MISSED</small></div>
           <div className="status-main"><span className="eyebrow">CONFIRMED ON CARDANO · {state.sequence} CHECK-IN{state.sequence === 1 ? "" : "S"}</span><h2>{statusLabels[status]}</h2><p>{status === "claimable" ? "The full waiting period has passed. Your chosen recipient method can now complete the handoff." : `Check in before ${formatUtc(state.releaseAtMs)} to begin the full waiting period again.`}</p></div>
-          <div className="status-clock"><span>HANDOFF AVAILABLE AFTER</span><strong>{formatUtc(state.releaseAtMs)}</strong><small>{new Date(state.releaseAtMs).toLocaleString()}</small></div>
+          <div className="status-clock"><span>HANDOFF AVAILABLE AFTER</span><strong>{formatUtc(state.releaseAtMs)}</strong><small>Your local time: {new Date(state.releaseAtMs).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</small></div>
         </section>
 
         <section className="vault-grid">
           <div className="vault-details"><div><span>PLAN ID</span><strong className="mono">{shortHash(manifest.receiptUnit, 14)}</strong></div><div><span>PROTECTED ADDRESS</span><strong className="mono">{shortHash(manifest.validatorAddress, 14)}</strong></div><div><span>CHECK IN</span><strong>Every {manifest.checkInPeriodMs / 86_400_000} days</strong></div><div><span>RECIPIENT METHOD</span><strong>{manifest.releaseMode === "bearer" ? "Recovery token" : "Chosen address"}</strong></div><div><span>LAST CHECK-IN</span><strong>{formatUtc(state.lastCheckInAtMs)}</strong></div><div><span>WHAT IS PROTECTED</span><strong>{formatAda(state.utxo.assets.lovelace ?? 0n)} + {Object.keys(state.utxo.assets).length - 2} other asset(s)</strong></div></div>
-          <div className="action-panel"><p className="eyebrow">WHAT YOU CAN DO NOW</p>{status !== "claimable" ? <><button className="action-primary" onClick={() => prepare("pulse")} disabled={busy}>Check in with Eternl<span>No site fee · normal Cardano network fee applies</span></button><button className="action-secondary" onClick={() => prepare("close")} disabled={busy}>Cancel this plan<span>Returns the protected assets to the owner wallet</span></button></> : <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Complete the handoff<span>{manifest.releaseMode === "bearer" ? "Requires the recovery token" : "Assets can only go to the chosen address"}</span></button>} {!wallet.connection && <button className="connect-inline" onClick={wallet.connect}>Connect Eternl</button>}</div>
+          <div className="action-panel">
+            <p className="eyebrow">WHAT YOU CAN DO NOW</p>
+            {!wallet.connection ? <div className="action-guidance">
+              <strong>Connect the wallet for this plan</strong>
+              <p>Baton will confirm whether this account owns the plan, checks it in, or holds its recovery token. Connecting does not submit a transaction.</p>
+              <button className="connect-inline" onClick={wallet.connect} disabled={wallet.connecting}>{wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>
+            </div> : status === "claimable" && manifest.releaseMode === "fixed" ? <>
+              <div className="action-role">Fixed receiving address</div>
+              <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Complete the handoff<span>The complete protected value can only go to the chosen address</span></button>
+            </> : checkingWalletRoles ? <div className="action-guidance" role="status">
+              <strong>Checking this Eternl account</strong>
+              <p>Baton is confirming what this wallet can do without submitting a transaction.</p>
+            </div> : walletRoleError ? <div className="action-guidance action-guidance-error" role="alert">
+              <strong>Wallet role could not be confirmed</strong>
+              <p>{walletRoleError}</p>
+            </div> : <>
+              {connectedRole && <div className="action-role">{connectedRole}</div>}
+              {canPulse && <button className="action-primary" onClick={() => prepare("pulse")} disabled={busy}>Check in with Eternl<span>No site fee · normal Cardano network fee applies</span></button>}
+              {canClose && <button className="action-secondary" onClick={() => prepare("close")} disabled={busy}>Cancel this plan<span>Returns the complete protected value to the owner wallet</span></button>}
+              {canRelease && <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Complete the handoff<span>The recovery token and complete protected value will arrive together</span></button>}
+              {!canPulse && !canClose && !canRelease && <div className="action-guidance">
+                <strong>{walletRoles.includes("recovery holder")
+                  ? "The recovery token is ready"
+                  : walletRoles.includes("recipient")
+                    ? "No action is needed yet"
+                    : "This is not a managing wallet"}</strong>
+                <p>{walletRoles.includes("recovery holder")
+                  ? `This wallet can complete the handoff after ${formatUtc(state.releaseAtMs)}.`
+                  : walletRoles.includes("recipient")
+                    ? `The protected value cannot be received before ${formatUtc(state.releaseAtMs)}.`
+                    : status === "claimable" && manifest.releaseMode === "bearer"
+                      ? "Connect the Eternl account that holds this plan's BATON_RECOVERY token."
+                      : "Switch to the owner or check-in account in Eternl, then reconnect Baton."}</p>
+              </div>}
+            </>}
+          </div>
         </section>
 
         {review && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{review.action === "pulse" ? "Check in" : review.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(review.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(review.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{review.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{review.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{review.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(review.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(review.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => setReview(null)}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for confirmation…" : "Approve in Eternl"}</button></div></section>}
