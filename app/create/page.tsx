@@ -77,6 +77,33 @@ export default function CreateVault() {
   const [submittedHash, setSubmittedHash] = useState<string | null>(null);
   const [createdManifest, setCreatedManifest] = useState<VaultManifest | null>(null);
   const [clock, setClock] = useState(() => Date.now());
+  const visibleStepIssue =
+    stepIssue?.field === "wallet" && wallet.connection ? null : stepIssue;
+
+  useEffect(() => {
+    if (!visibleStepIssue) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = panelRef.current?.querySelector<HTMLElement>(
+        `[data-create-field="${visibleStepIssue.field}"]`,
+      );
+      if (!target) return;
+      target.focus({ preventScroll: true });
+      const headerBottom = document
+        .querySelector<HTMLElement>(".site-header")
+        ?.getBoundingClientRect().bottom ?? 0;
+      const targetBox = target.getBoundingClientRect();
+      if (
+        targetBox.top < headerBottom + 24 ||
+        targetBox.bottom > window.innerHeight - 80
+      ) {
+        window.scrollTo({
+          top: window.scrollY + targetBox.top - headerBottom - 24,
+          behavior: "auto",
+        });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [step, visibleStepIssue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -328,7 +355,7 @@ export default function CreateVault() {
           {step === 1 && (
             <div className="form-section">
               <div className="form-heading"><span>01</span><div><h2>What do you want to protect?</h2><p>Choose your assets and the wallet you will use for regular check-ins.</p></div></div>
-              <div className="connection-card">
+              <div className="connection-card" data-create-field="wallet" tabIndex={-1}>
                 <div>
                   <span>YOUR ETERNL WALLET</span>
                   <strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : wallet.connectionActivity === "restoring" ? "Restoring your account…" : wallet.availability === "detecting" ? "Looking for Eternl…" : wallet.available ? "Ready to connect" : "Eternl not detected"}</strong>
@@ -337,12 +364,12 @@ export default function CreateVault() {
                 {!wallet.connection && <button type="button" className="button secondary" onClick={() => { clearStepIssue("wallet"); void wallet.connect(); }} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActivity === "restoring" ? "Restoring Eternl…" : wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>}
                 {wallet.connection && <span className="ready-chip">PREPROD</span>}
               </div>
-              {stepIssue?.field === "wallet" && <p className="field-error wizard-field-error" role="alert">{stepIssue.message}</p>}
+              {visibleStepIssue?.field === "wallet" && <p className="field-error wizard-field-error" role="alert">{visibleStepIssue.message}</p>}
               <div className="field-grid">
-                <label className="field"><span>ADA to protect</span><div className="input-suffix"><input type="number" min="5" step="0.000001" value={ada} aria-invalid={stepIssue?.field === "ada" || undefined} onChange={(e) => { setAda(e.target.value); clearStepIssue("ada"); }} /><b>ADA</b></div><small>The 5 ADA site fee and network fee are additional.</small>{stepIssue?.field === "ada" && <small className="field-error" role="alert">{stepIssue.message}</small>}</label>
-                <label className="field"><span>Check in every</span><div className="input-suffix"><input type="number" min="1" max="3650" value={periodDays} aria-invalid={stepIssue?.field === "period" || undefined} onChange={(e) => { setPeriodDays(Number(e.target.value)); clearStepIssue("period"); }} /><b>DAYS</b></div>{stepIssue?.field === "period" && <small className="field-error" role="alert">{stepIssue.message}</small>}</label>
-                <label className="field"><span>How many check-ins may be missed?</span><div className="input-suffix"><input type="number" min="1" max="1000" value={misses} aria-invalid={stepIssue?.field === "misses" || undefined} onChange={(e) => { setMisses(Number(e.target.value)); clearStepIssue("misses"); }} /><b>MISSES</b></div><small>Your handoff becomes available after the {misses}{misses === 1 ? "st" : misses === 2 ? "nd" : misses === 3 ? "rd" : "th"} missed check-in.</small>{stepIssue?.field === "misses" && <small className="field-error" role="alert">{stepIssue.message}</small>}</label>
-                <label className="field"><span>Wallet used to check in</span><input value={livenessAddress} aria-invalid={stepIssue?.field === "liveness" || undefined} onChange={(e) => { setLivenessAddress(e.target.value.trim()); clearStepIssue("liveness"); }} placeholder="addr_test1… from another Eternl account" /><small>For safety, use a different account from the one creating the plan. This wallet can check in but cannot take your assets.</small>{stepIssue?.field === "liveness" && <small className="field-error" role="alert">{stepIssue.message}</small>}</label>
+                <label className="field"><span>ADA to protect</span><div className="input-suffix"><input data-create-field="ada" type="number" min="5" step="0.000001" value={ada} aria-invalid={visibleStepIssue?.field === "ada" || undefined} onChange={(e) => { setAda(e.target.value); clearStepIssue("ada"); }} /><b>ADA</b></div><small>The 5 ADA site fee and network fee are additional.</small>{visibleStepIssue?.field === "ada" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <label className="field"><span>Check in every</span><div className="input-suffix"><input data-create-field="period" type="number" min="1" max="3650" value={periodDays} aria-invalid={visibleStepIssue?.field === "period" || undefined} onChange={(e) => { setPeriodDays(Number(e.target.value)); clearStepIssue("period"); }} /><b>DAYS</b></div>{visibleStepIssue?.field === "period" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <label className="field"><span>How many check-ins may be missed?</span><div className="input-suffix"><input data-create-field="misses" type="number" min="1" max="1000" value={misses} aria-invalid={visibleStepIssue?.field === "misses" || undefined} onChange={(e) => { setMisses(Number(e.target.value)); clearStepIssue("misses"); }} /><b>MISSES</b></div><small>Your handoff becomes available after the {misses}{misses === 1 ? "st" : misses === 2 ? "nd" : misses === 3 ? "rd" : "th"} missed check-in.</small>{visibleStepIssue?.field === "misses" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <label className="field"><span>Wallet used to check in</span><input data-create-field="liveness" value={livenessAddress} aria-invalid={visibleStepIssue?.field === "liveness" || undefined} onChange={(e) => { setLivenessAddress(e.target.value.trim()); clearStepIssue("liveness"); }} placeholder="addr_test1… from another Eternl account" /><small>For safety, use a different account from the one creating the plan. This wallet can check in but cannot take your assets.</small>{visibleStepIssue?.field === "liveness" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
               </div>
 
               {walletAssets.length > 0 && <div className="asset-picker"><div><h3>Tokens and NFTs</h3><p>Select any other Cardano assets you want to protect.</p></div><div className="asset-list">{walletAssets.map((asset) => <label key={asset.unit}><input type="checkbox" checked={protectedTokenUnits.includes(asset.unit)} onChange={() => toggleProtected(asset.unit)} /><span className="mono">{shortHash(asset.unit, 10)}</span><strong>{asset.quantity.toString()}</strong></label>)}</div></div>}
@@ -362,7 +389,7 @@ export default function CreateVault() {
               {releaseMode === "bearer" ? (
                 <div className="field full-field"><div className="field"><span>Your Baton recovery token</span><strong>Created automatically with this plan</strong><small>It will be placed in your wallet, outside the protected plan. Give it to someone you trust; whoever holds it after the waiting period can receive the assets.</small></div></div>
               ) : (
-                <div className="field full-field"><label className="field"><span>Receiving Cardano address</span><input value={destination} aria-invalid={stepIssue?.field === "destination" || undefined} onChange={(e) => { setDestination(e.target.value.trim()); clearStepIssue("destination"); }} placeholder="addr_test1…" /><small>Check this carefully. The plan cannot replace or repair this address later.</small>{stepIssue?.field === "destination" && <small className="field-error" role="alert">{stepIssue.message}</small>}</label></div>
+                <div className="field full-field"><label className="field"><span>Receiving Cardano address</span><input data-create-field="destination" value={destination} aria-invalid={visibleStepIssue?.field === "destination" || undefined} onChange={(e) => { setDestination(e.target.value.trim()); clearStepIssue("destination"); }} placeholder="addr_test1…" /><small>Check this carefully. The plan cannot replace or repair this address later.</small>{visibleStepIssue?.field === "destination" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label></div>
               )}
               <div className="risk-box"><strong>Choose enough time</strong><p>If you miss {misses} check-ins in a row, your handoff becomes available after {periodDays * misses} days—even if you are alive, traveling, ill, or unable to reach your check-in wallet.</p></div>
               <div className="form-actions"><button className="button secondary" onClick={() => goToStep(1)}>Back</button><button className="button primary" onClick={() => goToStep(3)}>Review my plan</button></div>
