@@ -182,6 +182,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wizard-nav > button span { font-size: .72rem; }
 .wizard-nav > button.active { color: var(--signal); background: var(--signal-soft); font-weight: 700; }
 .wizard-nav > button.complete span::after { content: " ✓"; color: var(--signal); }
+.wizard-nav > button:disabled:not(.active) { color: var(--dim); cursor: not-allowed; opacity: .58; }
 .network-plate { display: grid; gap: 4px; padding: 18px; }
 .network-plate span { color: var(--dim); font-size: .66rem; font-weight: 700; letter-spacing: .07em; }
 .network-plate strong { color: var(--ink); }
@@ -204,7 +205,10 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .field > span { font-weight: 680; font-size: .88rem; }
 .field input, .field select { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--base); }
 .field input:focus, .field select:focus { border-color: var(--signal); }
+.field input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
 .field small { color: var(--muted); font-size: .76rem; }
+.field-error { color: var(--danger) !important; font-weight: 650; line-height: 1.45; }
+.wizard-field-error { margin: 12px 0 0; font-size: .82rem; }
 .input-suffix { display: grid; grid-template-columns: 1fr auto; }
 .input-suffix input { border-radius: 8px 0 0 8px; }
 .input-suffix b { display: grid; place-items: center; min-width: 68px; padding: 0 10px; border: 1px solid var(--line); border-left: 0; border-radius: 0 8px 8px 0; color: var(--muted); background: var(--panel-2); font-size: .68rem; }
