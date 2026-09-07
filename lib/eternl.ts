@@ -131,6 +131,48 @@ export async function wasEternlAuthorized() {
   }
 }
 
+async function readWalletIdentity(api: WalletApi, lucid: LucidEvolution) {
+  const networkId = await withWalletTimeout(
+    api.getNetworkId(),
+    "Reading the Eternl network",
+    READ_TIMEOUT_MS,
+  );
+  if (networkId !== EXPECTED_NETWORK_ID) {
+    throw new Error(
+      `Eternl is connected to network ID ${networkId}; this release requires ${CARDANO_NETWORK}. Switch networks in Eternl and reconnect.`,
+    );
+  }
+
+  const address = await withWalletTimeout(
+    lucid.wallet().address(),
+    "Reading the Eternl account",
+    READ_TIMEOUT_MS,
+  );
+  const { getAddressDetails } = await import("@lucid-evolution/lucid");
+  const paymentCredential = getAddressDetails(address).paymentCredential;
+  if (!paymentCredential || paymentCredential.type !== "Key") {
+    throw new Error(
+      "The selected Eternl account does not use a supported key payment credential.",
+    );
+  }
+
+  return {
+    address,
+    networkId,
+    paymentKeyHash: paymentCredential.hash,
+  };
+}
+
+/** Re-read the authorized CIP-30 session without opening another approval. */
+export async function refreshEternlConnection(
+  connection: EternlConnection,
+): Promise<EternlConnection> {
+  return {
+    ...connection,
+    ...await readWalletIdentity(connection.api, connection.lucid),
+  };
+}
+
 export async function connectEternl(): Promise<EternlConnection> {
   const browserGlobals = globalThis as typeof globalThis & {
     Buffer?: typeof Buffer;
@@ -149,40 +191,18 @@ export async function connectEternl(): Promise<EternlConnection> {
     "Eternl approval",
     APPROVAL_TIMEOUT_MS,
   );
-  const networkId = await withWalletTimeout(
-    api.getNetworkId(),
-    "Reading the Eternl network",
-    READ_TIMEOUT_MS,
-  );
-  if (networkId !== EXPECTED_NETWORK_ID) {
-    throw new Error(
-      `Eternl is connected to network ID ${networkId}; this release requires ${CARDANO_NETWORK}. Switch networks in Eternl and reconnect.`,
-    );
-  }
 
-  const { getAddressDetails, Koios, Lucid } = await import(
+  const { Koios, Lucid } = await import(
     "@lucid-evolution/lucid"
   );
   const lucid = await Lucid(new Koios(KOIOS_URL), CARDANO_NETWORK);
   lucid.selectWallet.fromAPI(api);
-  const address = await withWalletTimeout(
-    lucid.wallet().address(),
-    "Reading the Eternl account",
-    READ_TIMEOUT_MS,
-  );
-  const paymentCredential = getAddressDetails(address).paymentCredential;
-  if (!paymentCredential || paymentCredential.type !== "Key") {
-    throw new Error(
-      "The selected Eternl account does not use a supported key payment credential.",
-    );
-  }
+  const identity = await readWalletIdentity(api, lucid);
 
   return {
     api,
     lucid,
-    address,
-    paymentKeyHash: paymentCredential.hash,
-    networkId,
+    ...identity,
     walletName: provider.name || "Eternl",
     apiVersion: provider.apiVersion || "CIP-30",
   };

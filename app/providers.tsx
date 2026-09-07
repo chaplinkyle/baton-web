@@ -14,6 +14,7 @@ import type { EternlConnection } from "@/lib/eternl";
 import {
   connectEternl,
   isEternlAvailable,
+  refreshEternlConnection,
   walletErrorMessage,
   wasEternlAuthorized,
 } from "@/lib/eternl";
@@ -66,7 +67,8 @@ export function Providers({ children }: { children: ReactNode }) {
     useState<WalletAvailability>("detecting");
   const connectingRef = useRef(false);
   const connectedRef = useRef(false);
-  const manuallyDisconnectedRef = useRef(false);
+  const reconnectSuppressedRef = useRef(false);
+  const reconnectPreferenceLoadedRef = useRef(false);
 
   const establishConnection = useCallback(async (silent = false) => {
     if (connectingRef.current) return;
@@ -95,7 +97,7 @@ export function Providers({ children }: { children: ReactNode }) {
       connectedRef.current = true;
       setConnection(nextConnection);
       setError(null);
-      manuallyDisconnectedRef.current = false;
+      reconnectSuppressedRef.current = false;
       setReconnectSuppressed(false);
     } catch (cause) {
       const connectionWasActive = connectedRef.current;
@@ -115,8 +117,51 @@ export function Providers({ children }: { children: ReactNode }) {
     [establishConnection],
   );
 
+  const refreshConnection = useCallback(async (current: EternlConnection) => {
+    if (connectingRef.current) return;
+    if (!isEternlAvailable()) {
+      setAvailability("missing");
+      connectedRef.current = false;
+      setConnection(null);
+      setError(
+        "Eternl is no longer available in this browser. Reopen or enable Eternl, then reconnect Baton.",
+      );
+      return;
+    }
+
+    connectingRef.current = true;
+    setAvailability("available");
+    try {
+      const nextConnection = await refreshEternlConnection(current);
+      connectedRef.current = true;
+      setError(null);
+      if (
+        nextConnection.address !== current.address ||
+        nextConnection.networkId !== current.networkId ||
+        nextConnection.paymentKeyHash !== current.paymentKeyHash
+      ) {
+        setConnection(nextConnection);
+      }
+    } catch (cause) {
+      // The connection -> null transition reruns the discovery effect. Keep it
+      // from immediately calling enable() again after a failed background
+      // refresh; the visible Try again action is the next authority boundary.
+      reconnectSuppressedRef.current = true;
+      connectedRef.current = false;
+      setConnection(null);
+      setError(
+        walletErrorMessage(
+          cause,
+          "Baton could not refresh the selected Eternl account.",
+        ),
+      );
+    } finally {
+      connectingRef.current = false;
+    }
+  }, []);
+
   const disconnect = useCallback(() => {
-    manuallyDisconnectedRef.current = true;
+    reconnectSuppressedRef.current = true;
     connectedRef.current = false;
     setConnection(null);
     setError(null);
@@ -129,14 +174,17 @@ export function Providers({ children }: { children: ReactNode }) {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const startedAt = Date.now();
-    manuallyDisconnectedRef.current = reconnectSuppressed();
+    if (!reconnectPreferenceLoadedRef.current) {
+      reconnectSuppressedRef.current = reconnectSuppressed();
+      reconnectPreferenceLoadedRef.current = true;
+    }
 
     const discover = async () => {
       if (cancelled) return;
       if (isEternlAvailable()) {
         setAvailability("available");
         if (
-          !manuallyDisconnectedRef.current &&
+          !reconnectSuppressedRef.current &&
           !connection &&
           await wasEternlAuthorized()
         ) {
@@ -157,8 +205,8 @@ export function Providers({ children }: { children: ReactNode }) {
 
     const rediscover = () => {
       if (cancelled) return;
-      if (connection && !manuallyDisconnectedRef.current) {
-        void establishConnection(true);
+      if (connection && !reconnectSuppressedRef.current) {
+        void refreshConnection(connection);
         return;
       }
       void discover();
@@ -173,7 +221,7 @@ export function Providers({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", rediscover);
       window.removeEventListener("cardano#initialized", rediscover);
     };
-  }, [connection, establishConnection]);
+  }, [connection, establishConnection, refreshConnection]);
 
   const value = useMemo<WalletContextValue>(
     () => ({
