@@ -109,6 +109,14 @@ export function isEternlAvailable() {
   return Boolean(getEternlProvider());
 }
 
+export function cardanoBrowseUri(url: string) {
+  const target = new URL(url);
+  if (target.protocol !== "http:" && target.protocol !== "https:") {
+    throw new Error("A wallet-app link requires an HTTP or HTTPS Baton URL.");
+  }
+  return `web+cardano://browse/v1?uri=${encodeURIComponent(target.href)}`;
+}
+
 export async function wasEternlAuthorized() {
   const provider = getEternlProvider();
   if (!provider) return false;

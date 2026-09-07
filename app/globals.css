@@ -69,6 +69,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-network i { width: 6px; height: 6px; border-radius: 50%; background: #7fc6ad; }
 .wallet-panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
 .wallet-panel-actions.single-action { grid-template-columns: 1fr; }
+.wallet-panel-actions.wallet-setup-actions { grid-template-columns: 1fr; }
 .wallet-panel-actions button, .wallet-panel-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: transparent; font-size: .76rem; font-weight: 650; cursor: pointer; }
 .wallet-panel-actions button:first-child, .wallet-panel-actions a:first-child { border-color: var(--signal-2); color: var(--signal); background: var(--signal-soft); }
 .wallet-pending-note { margin-top: 18px; padding: 11px 12px; border: 1px solid var(--signal-2); border-radius: 7px; color: var(--signal); background: var(--signal-soft); font-size: .76rem; font-weight: 650; text-align: center; }

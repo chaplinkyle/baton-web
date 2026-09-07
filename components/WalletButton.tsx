@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { CARDANO_NETWORK } from "@/lib/config";
+import { cardanoBrowseUri } from "@/lib/eternl";
 import { shortHash } from "@/lib/product";
 
 export function WalletButton() {
@@ -51,6 +52,10 @@ export function WalletButton() {
     }
     if (copyResetTimer.current) window.clearTimeout(copyResetTimer.current);
     copyResetTimer.current = window.setTimeout(() => setCopyStatus("idle"), 1_500);
+  }
+
+  function openWalletApp() {
+    window.location.assign(cardanoBrowseUri(window.location.href));
   }
 
   const label = wallet.connecting
@@ -128,7 +133,7 @@ export function WalletButton() {
                   wallet.disconnect();
                   setOpen(false);
                 }}>
-                  Disconnect
+                  Disconnect Baton
                 </button>
               </div>
             </>
@@ -203,18 +208,21 @@ export function WalletButton() {
                 </div>
               </div>
               <p>
-                Install Eternl for this browser, or open Baton inside Eternl&apos;s
-                dApp browser. Then select Cardano Preprod.
+                On mobile, open Baton in a compatible wallet app. On desktop,
+                install or enable Eternl for this browser. Then select Cardano
+                Preprod.
               </p>
-              <div className="wallet-panel-actions">
+              <div className="wallet-panel-actions wallet-setup-actions">
+                <button type="button" onClick={openWalletApp}>
+                  Open in mobile wallet
+                </button>
                 <a href="https://eternl.io" target="_blank" rel="noreferrer">
-                  Visit Eternl
+                  Install Eternl
                 </a>
                 <button type="button" onClick={() => {
-                  wallet.detect();
-                  setOpen(false);
+                  window.location.reload();
                 }}>
-                  Check again
+                  Reload after installing
                 </button>
               </div>
             </>

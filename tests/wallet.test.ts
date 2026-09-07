@@ -1,10 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  cardanoBrowseUri,
   WalletRequestTimeoutError,
   walletErrorMessage,
   withWalletTimeout,
 } from "../lib/eternl";
+
+test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () => {
+  assert.equal(
+    cardanoBrowseUri("https://baton-cardano.vercel.app/vault/abc?view=full#status"),
+    "web+cardano://browse/v1?uri=https%3A%2F%2Fbaton-cardano.vercel.app%2Fvault%2Fabc%3Fview%3Dfull%23status",
+  );
+  assert.throws(
+    () => cardanoBrowseUri("javascript:alert(1)"),
+    /HTTP or HTTPS/i,
+  );
+});
 
 test("wallet requests return successful results", async () => {
   assert.equal(

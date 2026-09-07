@@ -22,6 +22,28 @@ export type WalletAvailability = "detecting" | "available" | "missing";
 
 const DETECTION_GRACE_MS = 800;
 const LATE_INJECTION_WINDOW_MS = 5_000;
+const RECONNECT_SUPPRESSION_KEY = "baton:wallet-reconnect-suppressed:v1";
+
+function reconnectSuppressed() {
+  try {
+    return window.localStorage.getItem(RECONNECT_SUPPRESSION_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setReconnectSuppressed(suppressed: boolean) {
+  try {
+    if (suppressed) {
+      window.localStorage.setItem(RECONNECT_SUPPRESSION_KEY, "true");
+    } else {
+      window.localStorage.removeItem(RECONNECT_SUPPRESSION_KEY);
+    }
+  } catch {
+    // Storage can be unavailable in hardened or private browser contexts. The
+    // in-memory flag still preserves the choice for the current page session.
+  }
+}
 
 type WalletContextValue = {
   connection: EternlConnection | null;
@@ -32,7 +54,6 @@ type WalletContextValue = {
   connect: () => Promise<void>;
   disconnect: () => void;
   clearError: () => void;
-  detect: () => void;
 };
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -46,10 +67,6 @@ export function Providers({ children }: { children: ReactNode }) {
   const connectingRef = useRef(false);
   const connectedRef = useRef(false);
   const manuallyDisconnectedRef = useRef(false);
-
-  const detect = useCallback(() => {
-    setAvailability(isEternlAvailable() ? "available" : "missing");
-  }, []);
 
   const establishConnection = useCallback(async (silent = false) => {
     if (connectingRef.current) return;
@@ -79,6 +96,7 @@ export function Providers({ children }: { children: ReactNode }) {
       setConnection(nextConnection);
       setError(null);
       manuallyDisconnectedRef.current = false;
+      setReconnectSuppressed(false);
     } catch (cause) {
       const connectionWasActive = connectedRef.current;
       connectedRef.current = false;
@@ -102,6 +120,7 @@ export function Providers({ children }: { children: ReactNode }) {
     connectedRef.current = false;
     setConnection(null);
     setError(null);
+    setReconnectSuppressed(true);
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
@@ -110,6 +129,7 @@ export function Providers({ children }: { children: ReactNode }) {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const startedAt = Date.now();
+    manuallyDisconnectedRef.current = reconnectSuppressed();
 
     const discover = async () => {
       if (cancelled) return;
@@ -165,7 +185,6 @@ export function Providers({ children }: { children: ReactNode }) {
       connect,
       disconnect,
       clearError,
-      detect,
     }),
     [
       availability,
@@ -173,7 +192,6 @@ export function Providers({ children }: { children: ReactNode }) {
       connect,
       connecting,
       connection,
-      detect,
       disconnect,
       error,
     ],
