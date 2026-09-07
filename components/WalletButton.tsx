@@ -12,7 +12,10 @@ export function WalletButton() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const slotRef = useRef<HTMLDivElement>(null);
   const copyResetTimer = useRef<number | null>(null);
-  const panelOpen = open || Boolean(wallet.error);
+  // A request started from Create or My Plans should be just as legible as one
+  // started here. Keep the approval guidance visible until Eternl resolves the
+  // request so the disabled button never looks like an unexplained spinner.
+  const panelOpen = open || wallet.connecting || Boolean(wallet.error);
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -141,10 +144,8 @@ export function WalletButton() {
                 Open Eternl and approve Baton. Your keys stay in Eternl, and
                 connecting does not submit a transaction.
               </p>
-              <div className="wallet-panel-actions single-action">
-                <button type="button" onClick={() => setOpen(false)}>
-                  Hide this message
-                </button>
+              <div className="wallet-pending-note" role="status">
+                Waiting for your decision in Eternl
               </div>
             </>
           ) : wallet.error ? (
