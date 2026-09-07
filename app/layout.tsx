@@ -7,7 +7,9 @@ import { BatonLogo } from "@/components/BatonLogo";
 import { SiteHeader } from "@/components/SiteHeader";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://baton.kyle770944.chatgpt.site"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://baton-web-gamma.vercel.app",
+  ),
   title: { default: "Baton", template: "%s · Baton" },
   description:
     "Protect Cardano assets while you check in, then make them available through the handoff plan you chose.",

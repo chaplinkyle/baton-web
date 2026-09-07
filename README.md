@@ -14,6 +14,11 @@ Baton plans.
 > separately reviewed release acknowledgement is configured. Do not use this
 > candidate with valuable assets.
 
+**Live Preprod interface:** [baton-web-gamma.vercel.app](https://baton-web-gamma.vercel.app)
+
+Use Eternl on Cardano Preprod and faucet test ADA only. Never test this release
+with real ADA or valuable assets.
+
 <p align="center">
   <img src="public/baton-cradle.png" width="420" alt="A Baton relay object resting in a protective cradle" />
 </p>
