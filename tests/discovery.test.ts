@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BATON_DISCOVERY_LABEL } from "../lib/config";
 import {
+  discoverWalletManifests,
   recoverManifestFromTransaction,
   rolesForManifest,
   type KoiosCreationTransaction,
 } from "../lib/plan-discovery";
+import type { LucidEvolution } from "@lucid-evolution/lucid";
 
 const policyId = "22ddfeac47add659754b7931f49aaed2e87d93e93f7759625ae6a797";
 const receiptName = "4c4153545f5349474e414c";
@@ -107,4 +109,76 @@ test("a public metadata marker cannot make an unrelated transaction look like a 
     () => recoverManifestFromTransaction(forged, true),
     /not a supported Baton creation transaction/i,
   );
+});
+
+test("wallet discovery finds a verified legacy plan through credential history", async () => {
+  const originalFetch = globalThis.fetch;
+  const requested: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requested.push(url);
+    if (url.includes("tx_by_metalabel")) {
+      return Response.json([]);
+    }
+    if (url.endsWith("/credential_txs")) {
+      assert.equal(init?.method, "POST");
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        _payment_credentials: [ownerKeyHash],
+      });
+      return Response.json([{ tx_hash: creationTransaction().tx_hash }]);
+    }
+    if (url.endsWith("/tx_info")) {
+      return Response.json([creationTransaction()]);
+    }
+    return Response.json({ error: "unexpected test request" }, { status: 500 });
+  };
+
+  const lucid = {
+    wallet: () => ({ getUtxos: async () => [] }),
+  } as unknown as LucidEvolution;
+
+  try {
+    const discovered = await discoverWalletManifests(lucid, ownerKeyHash);
+    assert.equal(discovered.length, 1);
+    assert.deepEqual(discovered[0].roles, ["owner"]);
+    assert.equal(discovered[0].manifest.receiptName, "LAST_SIGNAL");
+    assert.ok(requested.some((url) => url.endsWith("/credential_txs")));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("live Preprod credential discovery finds the public legacy plan", {
+  timeout: 30_000,
+}, async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("tx_by_metalabel")) {
+      return Response.json([]);
+    }
+    if (url.startsWith("/api/koios/")) {
+      return originalFetch(
+        url.replace("/api/koios", "https://preprod.koios.rest/api/v1"),
+        init,
+      );
+    }
+    return originalFetch(input, init);
+  };
+
+  const lucid = {
+    wallet: () => ({ getUtxos: async () => [] }),
+  } as unknown as LucidEvolution;
+
+  try {
+    const discovered = await discoverWalletManifests(lucid, ownerKeyHash);
+    const legacy = discovered.find(
+      (plan) => plan.manifest.creationTx === creationTransaction().tx_hash,
+    );
+    assert.ok(legacy, "Known public legacy plan was not discovered.");
+    assert.deepEqual(legacy.roles, ["owner"]);
+    assert.equal(legacy.manifest.receiptName, "LAST_SIGNAL");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

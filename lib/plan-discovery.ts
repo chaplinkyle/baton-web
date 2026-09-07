@@ -47,6 +47,10 @@ type KoiosMetadataTransaction = {
   tx_hash: string;
 };
 
+type KoiosCredentialTransaction = {
+  tx_hash: string;
+};
+
 function assetQuantity(assets: KoiosAsset[], unit: string) {
   return assets
     .filter((asset) => `${asset.policy_id}${asset.asset_name}` === unit)
@@ -217,24 +221,50 @@ export async function discoverWalletManifests(
   lucid: LucidEvolution,
   paymentKeyHash: string,
 ) {
-  const [walletUtxos, metadataResponse] = await Promise.all([
+  const [walletUtxos, metadataResponse, credentialResponse] = await Promise.all([
     lucid.wallet().getUtxos(),
     fetch(`${KOIOS_URL}/tx_by_metalabel?_label=${BATON_DISCOVERY_LABEL}`, {
       headers: { Range: "0-999" },
       cache: "no-store",
     }),
+    fetch(`${KOIOS_URL}/credential_txs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Range: "0-999",
+      },
+      body: JSON.stringify({ _payment_credentials: [paymentKeyHash] }),
+      cache: "no-store",
+    }),
   ]);
   if (!metadataResponse.ok) throw new Error("Baton could not search Cardano for connected plans.");
+  if (!credentialResponse.ok) throw new Error("Baton could not search this wallet's Cardano history.");
   const indexed = await metadataResponse.json() as KoiosMetadataTransaction[];
+  const credentialTransactions = await credentialResponse.json() as KoiosCredentialTransaction[];
   const walletAssets = combineWalletAssets(walletUtxos);
   const discovered: Array<{ manifest: VaultManifest; roles: PlanRole[] }> = [];
+  const credentialHashes = new Set(
+    credentialTransactions.map((transaction) => transaction.tx_hash),
+  );
+  const candidateHashes = [...new Set([
+    ...indexed.map((transaction) => transaction.tx_hash),
+    ...credentialHashes,
+  ])];
 
-  for (let offset = 0; offset < indexed.length; offset += 20) {
-    const batch = indexed.slice(offset, offset + 20);
-    const transactions = await fetchTransactionInfo(batch.map((item) => item.tx_hash));
+  for (let offset = 0; offset < candidateHashes.length; offset += 20) {
+    const transactions = await fetchTransactionInfo(
+      candidateHashes.slice(offset, offset + 20),
+    );
     for (const transaction of transactions) {
       try {
-        const manifest = recoverManifestFromTransaction(transaction, true);
+        // Site-created plans use the public metadata index. Legacy plans did
+        // not, so also inspect the connected payment credential's own history.
+        // Every candidate still has to reproduce its applied validator and
+        // on-chain datum before wallet roles are considered.
+        const manifest = recoverManifestFromTransaction(
+          transaction,
+          !credentialHashes.has(transaction.tx_hash),
+        );
         const roles = rolesForManifest(manifest, paymentKeyHash, walletAssets);
         if (roles.length > 0) discovered.push({ manifest, roles });
       } catch {
