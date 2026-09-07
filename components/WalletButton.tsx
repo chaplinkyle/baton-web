@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { CARDANO_NETWORK } from "@/lib/config";
 import { cardanoBrowseUri } from "@/lib/eternl";
@@ -12,23 +12,31 @@ export function WalletButton() {
   const [open, setOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const slotRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const copyResetTimer = useRef<number | null>(null);
   // A request started from Create or My Plans should be just as legible as one
   // started here. Keep the approval guidance visible until Eternl resolves the
   // request so the disabled button never looks like an unexplained spinner.
   const panelOpen = open || wallet.connecting || Boolean(wallet.error);
 
+  const closePanel = useCallback((restoreFocus = false) => {
+    setOpen(false);
+    clearWalletError();
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => buttonRef.current?.focus());
+    }
+  }, [clearWalletError]);
+
   useEffect(() => {
     if (!panelOpen) return;
-    const closePanel = () => {
-      setOpen(false);
-      clearWalletError();
-    };
     const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!slotRef.current?.contains(event.target as Node)) closePanel();
+      if (!slotRef.current?.contains(event.target as Node)) closePanel(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closePanel();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePanel(true);
+      }
     };
     document.addEventListener("pointerdown", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
@@ -36,7 +44,7 @@ export function WalletButton() {
       document.removeEventListener("pointerdown", closeOnOutsideClick);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [clearWalletError, panelOpen]);
+  }, [closePanel, panelOpen]);
 
   useEffect(() => () => {
     if (copyResetTimer.current) window.clearTimeout(copyResetTimer.current);
@@ -70,8 +78,7 @@ export function WalletButton() {
 
   const handlePrimaryClick = () => {
     if (panelOpen) {
-      setOpen(false);
-      clearWalletError();
+      closePanel(false);
       return;
     }
     if (wallet.connection || !wallet.available) {
@@ -84,6 +91,7 @@ export function WalletButton() {
   return (
     <div className="wallet-slot" ref={slotRef}>
       <button
+        ref={buttonRef}
         type="button"
         className={`wallet-button ${wallet.connection ? "connected" : ""}`}
         onClick={handlePrimaryClick}
@@ -131,7 +139,7 @@ export function WalletButton() {
                 </button>
                 <button type="button" onClick={() => {
                   wallet.disconnect();
-                  setOpen(false);
+                  closePanel(true);
                 }}>
                   Disconnect Baton
                 </button>
@@ -171,8 +179,7 @@ export function WalletButton() {
                   Try again
                 </button>
                 <button type="button" onClick={() => {
-                  wallet.clearError();
-                  setOpen(false);
+                  closePanel(true);
                 }}>
                   Close
                 </button>
@@ -194,7 +201,7 @@ export function WalletButton() {
                 <button type="button" onClick={() => void wallet.connect()}>
                   Connect Eternl
                 </button>
-                <button type="button" onClick={() => setOpen(false)}>
+                <button type="button" onClick={() => closePanel(true)}>
                   Close
                 </button>
               </div>
