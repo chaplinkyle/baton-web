@@ -172,6 +172,7 @@ export function Providers({ children }: { children: ReactNode }) {
       if (
         nextConnection.address !== current.address ||
         nextConnection.networkId !== current.networkId ||
+        nextConnection.networkMagic !== current.networkMagic ||
         nextConnection.paymentKeyHash !== current.paymentKeyHash
       ) {
         setConnection(nextConnection);

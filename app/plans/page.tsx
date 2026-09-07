@@ -64,12 +64,12 @@ export default function PlansPage() {
   const walletProgressTitle = waitingForApproval
     ? "Waiting for Eternl…"
     : checkingPreprod
-      ? "Checking Cardano Preprod…"
+      ? "Checking your wallet network…"
       : "Restoring your wallet…";
   const walletProgressCopy = waitingForApproval
     ? "Approve or decline the connection in Eternl. Baton will search only after you approve it."
     : checkingPreprod
-      ? "Eternl is approved. Baton is preparing confirmed network data; nothing is being signed or submitted."
+      ? "Eternl is approved. Baton is checking the network and preparing confirmed Cardano data; nothing is being signed or submitted."
       : "Baton is reconnecting to the account you already approved. No new approval is required.";
 
   useEffect(() => {
@@ -223,7 +223,7 @@ export default function PlansPage() {
             : waitingForApproval
               ? "Waiting for your approval"
               : checkingPreprod
-                ? "Checking Cardano Preprod"
+                ? "Checking your wallet network"
               : wallet.connectionActivity === "restoring"
                 ? "Restoring your account"
                 : wallet.availability === "detecting"

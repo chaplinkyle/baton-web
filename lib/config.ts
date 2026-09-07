@@ -21,6 +21,16 @@ export const CARDANO_NETWORK: PublicNetwork =
 
 export const EXPECTED_NETWORK_ID = CARDANO_NETWORK === "Mainnet" ? 1 : 0;
 
+// CIP-30's network ID distinguishes mainnet from testnets, but Preprod and
+// Preview both use ID 0. CIP-142-capable wallets expose the network magic that
+// identifies the exact chain.
+export const EXPECTED_NETWORK_MAGIC =
+  CARDANO_NETWORK === "Mainnet"
+    ? 764_824_073
+    : CARDANO_NETWORK === "Preview"
+      ? 2
+      : 1;
+
 export const KOIOS_URL =
   process.env.NEXT_PUBLIC_KOIOS_URL ?? "/api/koios";
 

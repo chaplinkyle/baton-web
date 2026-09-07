@@ -11,6 +11,10 @@ function errorDetail(cause: unknown) {
   return typeof value.message === "string" ? value.message : "";
 }
 
+function hasConnectionErrorCode(normalized: string) {
+  return /\beconn(?:aborted|closed|refused|reset)?\b/.test(normalized);
+}
+
 export function isRetryableCardanoReadError(cause: unknown) {
   const normalized = errorDetail(cause).toLowerCase();
   return (
@@ -21,7 +25,7 @@ export function isRetryableCardanoReadError(cause: unknown) {
     normalized.includes("fetch failed") ||
     normalized.includes("networkerror") ||
     normalized.includes("network error") ||
-    normalized.includes("econn") ||
+    hasConnectionErrorCode(normalized) ||
     normalized.includes("could not be reached") ||
     normalized.includes("429") ||
     normalized.includes("too many requests")
@@ -65,7 +69,7 @@ export function cardanoErrorMessage(
     normalized.includes("fetch failed") ||
     normalized.includes("networkerror") ||
     normalized.includes("network error") ||
-    normalized.includes("econn") ||
+    hasConnectionErrorCode(normalized) ||
     normalized.includes("could not be reached")
   ) {
     return "Baton could not reach Cardano. Nothing changed. Check your connection and try again.";

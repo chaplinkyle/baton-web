@@ -10,7 +10,7 @@ import {
   validateProtectStep,
   validateRecipientStep,
 } from "@/lib/create-validation";
-import { walletErrorMessage } from "@/lib/eternl";
+import { isExactWalletNetwork, walletErrorMessage } from "@/lib/eternl";
 import {
   CARDANO_NETWORK,
   EXPLORER_URL,
@@ -321,11 +321,15 @@ export default function CreateVault() {
   function walletConnectionTitle() {
     if (wallet.connection) return shortHash(wallet.connection.address, 12);
     if (wallet.connectionActivity === "requesting") return "Waiting for your approval…";
-    if (wallet.connectionActivity === "checking") return "Checking Cardano Preprod…";
+    if (wallet.connectionActivity === "checking") return "Checking your wallet network…";
     if (wallet.connectionActivity === "restoring") return "Restoring your account…";
     if (wallet.availability === "detecting") return "Looking for Eternl…";
     return wallet.available ? "Ready to connect" : "Eternl not detected";
   }
+
+  const exactWalletNetwork = wallet.connection
+    ? isExactWalletNetwork(wallet.connection)
+    : false;
 
   return (
     <div className="create-shell page-shell">
@@ -368,10 +372,14 @@ export default function CreateVault() {
                 <div>
                   <span>YOUR ETERNL WALLET</span>
                   <strong>{walletConnectionTitle()}</strong>
-                  <small>{wallet.connection ? "Connected for this browser session · confirm Preprod in Eternl" : "Your wallet approves every transaction and keeps your keys."}</small>
+                  <small>{wallet.connection
+                    ? exactWalletNetwork
+                      ? "Preprod verified for this browser session"
+                      : "Testnet connected · confirm Preprod in Eternl"
+                    : "Your wallet approves every transaction and keeps your keys."}</small>
                 </div>
                 {!wallet.connection && <button type="button" className="button secondary" onClick={() => { clearStepIssue("wallet"); void wallet.connect(); }} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}
-                {wallet.connection && <span className="ready-chip">PREPROD</span>}
+                {wallet.connection && <span className={`ready-chip ${exactWalletNetwork ? "" : "manual"}`}>{exactWalletNetwork ? `${CARDANO_NETWORK.toUpperCase()} VERIFIED` : `CHECK ${CARDANO_NETWORK.toUpperCase()}`}</span>}
               </div>
               {visibleStepIssue?.field === "wallet" && <p className="field-error wizard-field-error" role="alert">{visibleStepIssue.message}</p>}
               <div className="field-grid">

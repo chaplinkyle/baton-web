@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   cardanoBrowseUri,
   type EternlConnection,
+  isExactWalletNetwork,
   refreshEternlConnection,
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
@@ -19,7 +20,7 @@ test("wallet actions describe every discovery and connection state consistently"
   assert.equal(walletConnectionActionLabel("idle", "available"), "Connect Eternl");
   assert.equal(walletConnectionActionLabel("requesting", "available"), "Approve in Eternl");
   assert.equal(walletConnectionActionLabel("restoring", "available"), "Restoring Eternl…");
-  assert.equal(walletConnectionActionLabel("checking", "available"), "Checking Preprod…");
+  assert.equal(walletConnectionActionLabel("checking", "available"), "Checking wallet…");
 });
 
 test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () => {
@@ -85,6 +86,7 @@ test("an authorized wallet session refreshes its account without enable", async 
     address: OWNER_ADDRESS,
     paymentKeyHash: "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c",
     networkId: 0,
+    networkMagic: null,
     walletName: "Eternl",
     apiVersion: "1.0.0",
   } as unknown as EternlConnection;
@@ -108,11 +110,64 @@ test("an authorized wallet refresh still rejects the wrong network", async () =>
     address: OWNER_ADDRESS,
     paymentKeyHash: "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c",
     networkId: 0,
+    networkMagic: null,
     walletName: "Eternl",
     apiVersion: "1.0.0",
   } as unknown as EternlConnection;
 
   await assert.rejects(refreshEternlConnection(connection), /requires Preprod/i);
+});
+
+test("an exact network-magic mismatch rejects Preview before reading an account", async () => {
+  let addressReads = 0;
+  const connection = {
+    api: {
+      getNetworkId: async () => 0,
+      getExtensions: async () => [{ cip: 142 }],
+      cip142: { getNetworkMagic: async () => 2 },
+    },
+    lucid: { wallet: () => ({ address: async () => {
+      addressReads += 1;
+      return OWNER_ADDRESS;
+    } }) },
+    address: OWNER_ADDRESS,
+    paymentKeyHash: "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c",
+    networkId: 0,
+    networkMagic: 1,
+    walletName: "Eternl",
+    apiVersion: "1.0.0",
+  } as unknown as EternlConnection;
+
+  await assert.rejects(
+    refreshEternlConnection(connection),
+    /network magic 2.*requires Preprod/i,
+  );
+  assert.equal(addressReads, 0);
+});
+
+test("a CIP-142 wallet confirms Preprod network magic", async () => {
+  const connection = {
+    api: {
+      getNetworkId: async () => 0,
+      getExtensions: async () => [{ cip: 142 }],
+      cip142: { getNetworkMagic: async () => 1 },
+    },
+    lucid: { wallet: () => ({ address: async () => OWNER_ADDRESS }) },
+    address: OWNER_ADDRESS,
+    paymentKeyHash: "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c",
+    networkId: 0,
+    networkMagic: null,
+    walletName: "Eternl",
+    apiVersion: "1.0.0",
+  } as unknown as EternlConnection;
+
+  const refreshed = await refreshEternlConnection(connection);
+  assert.equal(refreshed.networkMagic, 1);
+  assert.equal(isExactWalletNetwork(refreshed), true);
+});
+
+test("a testnet-only connection is not presented as exact Preprod proof", () => {
+  assert.equal(isExactWalletNetwork({ networkId: 0, networkMagic: null }), false);
 });
 
 test("connection refusal uses connection-specific guidance", () => {
@@ -152,4 +207,11 @@ test("provider network errors retain their useful detail", () => {
     walletErrorMessage({ message: "Network mismatch: switch to Preprod" }),
     "Network mismatch: switch to Preprod",
   );
+});
+
+test("exact-network guidance is not replaced by a generic outage message", () => {
+  const detail =
+    "Eternl is connected to network magic 2; this release requires Preprod (network magic 1). Switch networks in Eternl and reconnect.";
+
+  assert.equal(walletErrorMessage(new Error(detail)), detail);
 });

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { CARDANO_NETWORK } from "@/lib/config";
-import { cardanoBrowseUri } from "@/lib/eternl";
+import { cardanoBrowseUri, isExactWalletNetwork } from "@/lib/eternl";
 import { shortHash } from "@/lib/product";
 
 export function WalletButton() {
@@ -97,6 +97,8 @@ export function WalletButton() {
   const label = wallet.connection
     ? shortHash(wallet.connection.address, 7)
     : wallet.connectionActionLabel;
+  const exactNetworkConfirmed =
+    wallet.connection ? isExactWalletNetwork(wallet.connection) : false;
 
   const handlePrimaryClick = () => {
     if (panelOpen) {
@@ -167,15 +169,15 @@ export function WalletButton() {
                   <span>Eternl connected</span>
                   <strong>{shortHash(wallet.connection.address, 12)}</strong>
                 </div>
-                <span className="wallet-network">
+                <span className={`wallet-network ${exactNetworkConfirmed ? "" : "manual"}`}>
                   <i aria-hidden="true" />
-                  {CARDANO_NETWORK}
+                  {exactNetworkConfirmed ? `${CARDANO_NETWORK} verified` : "Testnet connected"}
                 </span>
               </div>
               <p>
-                Confirm that Preprod is selected in Eternl. CIP-30 identifies
-                this as a testnet connection but cannot distinguish Preprod
-                from Preview.
+                {exactNetworkConfirmed
+                  ? `Eternl identified this account as Cardano ${CARDANO_NETWORK}.`
+                  : "This Eternl version identifies testnet, but not Preprod versus Preview. Confirm that Preprod is selected before preparing a transaction."}
               </p>
               <div className="wallet-panel-actions">
                 <button type="button" onClick={() => void copyAddress()}>
@@ -214,12 +216,12 @@ export function WalletButton() {
               <div className="wallet-panel-head">
                 <div>
                   <span>Eternl approved</span>
-                  <strong>Checking Cardano Preprod</strong>
+                  <strong>Checking the wallet network</strong>
                 </div>
               </div>
               <p>
-                Baton is preparing confirmed network data for this account.
-                Nothing is being signed or submitted.
+                Baton is checking the network and preparing confirmed Cardano
+                data for this account. Nothing is being signed or submitted.
               </p>
               <div className="wallet-pending-note" role="status">
                 Finishing the secure connection

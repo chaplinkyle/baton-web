@@ -7,6 +7,7 @@ import {
 } from "./cardano-errors";
 import {
   CARDANO_NETWORK,
+  EXPECTED_NETWORK_MAGIC,
   EXPECTED_NETWORK_ID,
   KOIOS_URL,
 } from "./config";
@@ -17,18 +18,35 @@ const READ_TIMEOUT_MS = 12_000;
 export type WalletAvailability = "detecting" | "available" | "missing";
 export type WalletConnectionActivity = "idle" | "restoring" | "requesting" | "checking";
 
-type EternlProvider = Window["cardano"][string];
+type Cip30Extension = { cip: number };
+type EternlWalletApi = WalletApi & {
+  getExtensions?: () => Promise<Cip30Extension[]>;
+  cip142?: { getNetworkMagic?: () => Promise<number> };
+};
+type EternlProvider = Omit<Window["cardano"][string], "enable"> & {
+  supportedExtensions?: Cip30Extension[];
+  enable(options?: { extensions: Cip30Extension[] }): Promise<EternlWalletApi>;
+};
 type Cip30Error = { code?: unknown; info?: unknown; message?: unknown };
 
 export type EternlConnection = {
-  api: WalletApi;
+  api: EternlWalletApi;
   lucid: LucidEvolution;
   address: string;
   paymentKeyHash: string;
   networkId: number;
+  networkMagic: number | null;
   walletName: string;
   apiVersion: string;
 };
+
+export function isExactWalletNetwork(
+  connection: Pick<EternlConnection, "networkId" | "networkMagic">,
+) {
+  return CARDANO_NETWORK === "Mainnet"
+    ? connection.networkId === EXPECTED_NETWORK_ID
+    : connection.networkMagic === EXPECTED_NETWORK_MAGIC;
+}
 
 export class WalletRequestTimeoutError extends Error {
   constructor(operation: string) {
@@ -43,7 +61,7 @@ export function walletConnectionActionLabel(
 ) {
   if (activity === "requesting") return "Approve in Eternl";
   if (activity === "restoring") return "Restoring Eternl…";
-  if (activity === "checking") return "Checking Preprod…";
+  if (activity === "checking") return "Checking wallet…";
   if (availability === "detecting") return "Finding Eternl…";
   if (availability === "available") return "Connect Eternl";
   return "Set up Eternl";
@@ -126,7 +144,7 @@ export function walletErrorMessage(
 
 export function getEternlProvider(): EternlProvider | null {
   if (typeof window === "undefined") return null;
-  return window.cardano?.eternl ?? null;
+  return (window.cardano?.eternl as EternlProvider | undefined) ?? null;
 }
 
 export function isEternlAvailable() {
@@ -155,7 +173,30 @@ export async function wasEternlAuthorized() {
   }
 }
 
-async function readWalletIdentity(api: WalletApi, lucid: LucidEvolution) {
+function hasExtension(extensions: Cip30Extension[] | undefined, cip: number) {
+  return Boolean(extensions?.some((extension) => extension.cip === cip));
+}
+
+async function readNetworkMagic(api: EternlWalletApi) {
+  if (!api.cip142?.getNetworkMagic) return null;
+
+  if (api.getExtensions) {
+    const enabled = await withWalletTimeout(
+      api.getExtensions(),
+      "Reading Eternl extensions",
+      READ_TIMEOUT_MS,
+    );
+    if (!hasExtension(enabled, 142)) return null;
+  }
+
+  return withWalletTimeout(
+    api.cip142.getNetworkMagic(),
+    "Reading the Eternl network",
+    READ_TIMEOUT_MS,
+  );
+}
+
+async function readWalletIdentity(api: EternlWalletApi, lucid: LucidEvolution) {
   const networkId = await withWalletTimeout(
     api.getNetworkId(),
     "Reading the Eternl network",
@@ -164,6 +205,13 @@ async function readWalletIdentity(api: WalletApi, lucid: LucidEvolution) {
   if (networkId !== EXPECTED_NETWORK_ID) {
     throw new Error(
       `Eternl is connected to network ID ${networkId}; this release requires ${CARDANO_NETWORK}. Switch networks in Eternl and reconnect.`,
+    );
+  }
+
+  const networkMagic = await readNetworkMagic(api);
+  if (networkMagic !== null && networkMagic !== EXPECTED_NETWORK_MAGIC) {
+    throw new Error(
+      `Eternl is connected to network magic ${networkMagic}; this release requires ${CARDANO_NETWORK} (network magic ${EXPECTED_NETWORK_MAGIC}). Switch networks in Eternl and reconnect.`,
     );
   }
 
@@ -183,6 +231,7 @@ async function readWalletIdentity(api: WalletApi, lucid: LucidEvolution) {
   return {
     address,
     networkId,
+    networkMagic,
     paymentKeyHash: paymentCredential.hash,
   };
 }
@@ -210,8 +259,11 @@ export async function connectEternl(onApproved?: () => void): Promise<EternlConn
     );
   }
 
+  const supportsExactNetwork = hasExtension(provider.supportedExtensions, 142);
   const api = await withWalletTimeout(
-    provider.enable(),
+    supportsExactNetwork
+      ? provider.enable({ extensions: [{ cip: 142 }] })
+      : provider.enable(),
     "Eternl approval",
     APPROVAL_TIMEOUT_MS,
   );

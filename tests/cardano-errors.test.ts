@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   cardanoErrorMessage,
+  isRetryableCardanoReadError,
   withCardanoReadRetry,
 } from "../lib/cardano-errors";
 
@@ -62,4 +63,12 @@ test("Cardano read retries do not repeat protocol validation failures", async ()
     /pinned validator/i,
   );
   assert.equal(calls, 1);
+});
+
+test("reconnect guidance is not mistaken for an ECONN transport failure", () => {
+  const guidance =
+    "Eternl is connected to network magic 2; this release requires Preprod. Switch networks in Eternl and reconnect.";
+
+  assert.equal(isRetryableCardanoReadError(new Error(guidance)), false);
+  assert.equal(cardanoErrorMessage(new Error(guidance)), guidance);
 });

@@ -70,6 +70,8 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-panel p { margin: 15px 0 0; color: var(--muted); font-size: .79rem; line-height: 1.55; }
 .wallet-network { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 8px; border: 1px solid rgba(142, 187, 173, .4); border-radius: 999px; color: #b9ddd2 !important; background: var(--handoff-soft); }
 .wallet-network i { width: 6px; height: 6px; border-radius: 50%; background: #7fc6ad; }
+.wallet-network.manual { border-color: rgba(211, 167, 91, .42); color: #e0bd7d !important; background: var(--amber-soft); }
+.wallet-network.manual i { background: var(--amber); }
 .wallet-panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
 .wallet-panel-actions.single-action { grid-template-columns: 1fr; }
 .wallet-panel-actions.wallet-setup-actions { grid-template-columns: 1fr; }
@@ -204,6 +206,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .connection-card strong { margin-top: 3px; font-size: .88rem; }
 .connection-card small { margin-top: 4px; color: var(--muted); font-size: .75rem; }
 .connection-card .ready-chip { color: var(--signal); }
+.connection-card .ready-chip.manual { color: var(--amber); }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px 18px; margin-top: 30px; }
 .field { display: grid; align-content: start; gap: 8px; min-width: 0; }
 .field > span { font-weight: 680; font-size: .88rem; }

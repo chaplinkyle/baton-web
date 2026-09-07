@@ -26,10 +26,17 @@ No provider method exposes the seed phrase or private key to the site. A wallet
 signature request is shown and approved inside Eternl.
 
 The interface names each connection phase explicitly: waiting for the person in
-Eternl, then checking Cardano Preprod after approval. A slow network read must
+Eternl, then checking the wallet network after approval. A slow network read must
 never look like an unresolved wallet approval. On small screens the wallet
 panel is a focus-contained sheet with an opaque background; on larger screens
 it remains an anchored popover.
+
+CIP-30 network ID `0` identifies a Cardano testnet but cannot distinguish
+Preprod from Preview. Baton requests CIP-142 when Eternl advertises support and
+requires Preprod network magic `1` when that extension is available. Otherwise
+the interface says only that a testnet is connected and tells the person to
+confirm Preprod in Eternl; it never presents the base CIP-30 result as exact
+Preprod proof.
 
 ### Embedded dApp-browser boundary
 
