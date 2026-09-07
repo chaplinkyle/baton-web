@@ -191,7 +191,7 @@ export default function PlansPage() {
               : `${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
             : "Saved plans on this device remain visible"}</small>
         </div>
-        {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActivity === "restoring" ? "Restoring Eternl…" : wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>}
+        {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}
         {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading}>{loading ? "Checking…" : "Refresh"}</button>}
       </section>
 

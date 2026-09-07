@@ -10,21 +10,28 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import type { EternlConnection } from "@/lib/eternl";
+import type {
+  EternlConnection,
+  WalletAvailability,
+  WalletConnectionActivity,
+} from "@/lib/eternl";
 import {
   connectEternl,
   isEternlAvailable,
   refreshEternlConnection,
+  walletConnectionActionLabel,
   walletErrorMessage,
   wasEternlAuthorized,
 } from "@/lib/eternl";
 
-export type WalletAvailability = "detecting" | "available" | "missing";
-export type WalletConnectionActivity = "idle" | "restoring" | "requesting";
-
 const DETECTION_GRACE_MS = 800;
 const LATE_INJECTION_WINDOW_MS = 5_000;
 const RECONNECT_SUPPRESSION_KEY = "baton:wallet-reconnect-suppressed:v1";
+
+type WalletIssue = {
+  kind: "missing" | "connection" | "refresh";
+  message: string;
+};
 
 function reconnectSuppressed() {
   try {
@@ -54,6 +61,7 @@ type WalletContextValue = {
   error: string | null;
   available: boolean;
   availability: WalletAvailability;
+  connectionActionLabel: string;
   connect: () => Promise<void>;
   disconnect: () => void;
   clearError: () => void;
@@ -65,7 +73,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const [connection, setConnection] = useState<EternlConnection | null>(null);
   const [connectionActivity, setConnectionActivity] =
     useState<WalletConnectionActivity>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [issue, setIssue] = useState<WalletIssue | null>(null);
   const [availability, setAvailability] =
     useState<WalletAvailability>("detecting");
   const connectingRef = useRef(false);
@@ -80,13 +88,17 @@ export function Providers({ children }: { children: ReactNode }) {
       if (connectedRef.current) {
         connectedRef.current = false;
         setConnection(null);
-        setError(
-          "Eternl is no longer available in this browser. Reopen or enable Eternl, then reconnect Baton.",
-        );
+        setIssue({
+          kind: "missing",
+          message:
+            "Eternl is no longer available in this browser. Reopen or enable Eternl, then reconnect Baton.",
+        });
       } else if (!silent) {
-        setError(
-          "Eternl was not detected. Install the extension or open Baton in Eternl's dApp browser, then try again.",
-        );
+        setIssue({
+          kind: "missing",
+          message:
+            "Eternl was not detected. Install the extension or open Baton in Eternl's dApp browser, then try again.",
+        });
       }
       return;
     }
@@ -94,12 +106,12 @@ export function Providers({ children }: { children: ReactNode }) {
     connectingRef.current = true;
     setConnectionActivity(silent ? "restoring" : "requesting");
     setAvailability("available");
-    if (!silent) setError(null);
+    if (!silent) setIssue(null);
     try {
       const nextConnection = await connectEternl();
       connectedRef.current = true;
       setConnection(nextConnection);
-      setError(null);
+      setIssue(null);
       reconnectSuppressedRef.current = false;
       setReconnectSuppressed(false);
     } catch (cause) {
@@ -107,7 +119,10 @@ export function Providers({ children }: { children: ReactNode }) {
       connectedRef.current = false;
       setConnection(null);
       if (!silent || connectionWasActive) {
-        setError(walletErrorMessage(cause, "Eternl connection failed."));
+        setIssue({
+          kind: "connection",
+          message: walletErrorMessage(cause, "Eternl connection failed."),
+        });
       }
     } finally {
       connectingRef.current = false;
@@ -126,9 +141,11 @@ export function Providers({ children }: { children: ReactNode }) {
       setAvailability("missing");
       connectedRef.current = false;
       setConnection(null);
-      setError(
-        "Eternl is no longer available in this browser. Reopen or enable Eternl, then reconnect Baton.",
-      );
+      setIssue({
+        kind: "missing",
+        message:
+          "Eternl is no longer available in this browser. Reopen or enable Eternl, then reconnect Baton.",
+      });
       return;
     }
 
@@ -137,7 +154,7 @@ export function Providers({ children }: { children: ReactNode }) {
     try {
       const nextConnection = await refreshEternlConnection(current);
       connectedRef.current = true;
-      setError(null);
+      setIssue(null);
       if (
         nextConnection.address !== current.address ||
         nextConnection.networkId !== current.networkId ||
@@ -152,12 +169,13 @@ export function Providers({ children }: { children: ReactNode }) {
       reconnectSuppressedRef.current = true;
       connectedRef.current = false;
       setConnection(null);
-      setError(
-        walletErrorMessage(
+      setIssue({
+        kind: "refresh",
+        message: walletErrorMessage(
           cause,
           "Baton could not refresh the selected Eternl account.",
         ),
-      );
+      });
     } finally {
       connectingRef.current = false;
     }
@@ -167,11 +185,11 @@ export function Providers({ children }: { children: ReactNode }) {
     reconnectSuppressedRef.current = true;
     connectedRef.current = false;
     setConnection(null);
-    setError(null);
+    setIssue(null);
     setReconnectSuppressed(true);
   }, []);
 
-  const clearError = useCallback(() => setError(null), []);
+  const clearError = useCallback(() => setIssue(null), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +204,7 @@ export function Providers({ children }: { children: ReactNode }) {
       if (cancelled) return;
       if (isEternlAvailable()) {
         setAvailability("available");
+        setIssue((current) => current?.kind === "missing" ? null : current);
         if (
           !reconnectSuppressedRef.current &&
           !connection &&
@@ -231,9 +250,13 @@ export function Providers({ children }: { children: ReactNode }) {
       connection,
       connecting: connectionActivity !== "idle",
       connectionActivity,
-      error,
+      error: issue?.message ?? null,
       available: availability === "available",
       availability,
+      connectionActionLabel: walletConnectionActionLabel(
+        connectionActivity,
+        availability,
+      ),
       connect,
       disconnect,
       clearError,
@@ -245,7 +268,7 @@ export function Providers({ children }: { children: ReactNode }) {
       connection,
       connectionActivity,
       disconnect,
-      error,
+      issue,
     ],
   );
 

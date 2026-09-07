@@ -5,12 +5,21 @@ import {
   type EternlConnection,
   refreshEternlConnection,
   WalletRequestTimeoutError,
+  walletConnectionActionLabel,
   walletErrorMessage,
   withWalletTimeout,
 } from "../lib/eternl";
 
 const OWNER_ADDRESS = "addr_test1qztr0p45temrsjcy6z4dpfardnruyftylxj077c6rrket3sjrc6lv8zv5re7krwmg06djl866jl3ygd9zea2cv0aydtq6fqvee";
 const CHECK_IN_ADDRESS = "addr_test1vptypkdle25xnm2ntne4vsg8jwpe064wkuj9kafqnqx4zysclztwf";
+
+test("wallet actions describe every discovery and connection state consistently", () => {
+  assert.equal(walletConnectionActionLabel("idle", "detecting"), "Finding Eternl…");
+  assert.equal(walletConnectionActionLabel("idle", "missing"), "Set up Eternl");
+  assert.equal(walletConnectionActionLabel("idle", "available"), "Connect Eternl");
+  assert.equal(walletConnectionActionLabel("requesting", "available"), "Approve in Eternl");
+  assert.equal(walletConnectionActionLabel("restoring", "available"), "Restoring Eternl…");
+});
 
 test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () => {
   assert.equal(

@@ -9,6 +9,9 @@ import {
 const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
 
+export type WalletAvailability = "detecting" | "available" | "missing";
+export type WalletConnectionActivity = "idle" | "restoring" | "requesting";
+
 type EternlProvider = Window["cardano"][string];
 type Cip30Error = { code?: unknown; info?: unknown; message?: unknown };
 
@@ -27,6 +30,17 @@ export class WalletRequestTimeoutError extends Error {
     super(`${operation} timed out.`);
     this.name = "WalletRequestTimeoutError";
   }
+}
+
+export function walletConnectionActionLabel(
+  activity: WalletConnectionActivity,
+  availability: WalletAvailability,
+) {
+  if (activity === "requesting") return "Approve in Eternl";
+  if (activity === "restoring") return "Restoring Eternl…";
+  if (availability === "detecting") return "Finding Eternl…";
+  if (availability === "available") return "Connect Eternl";
+  return "Set up Eternl";
 }
 
 export function withWalletTimeout<T>(

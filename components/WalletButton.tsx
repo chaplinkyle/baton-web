@@ -67,17 +67,9 @@ export function WalletButton() {
     window.location.assign(cardanoBrowseUri(window.location.href));
   }
 
-  const label = wallet.connectionActivity === "requesting"
-    ? "Approve in Eternl"
-    : wallet.connectionActivity === "restoring"
-      ? "Restoring Eternl"
-      : wallet.connection
-        ? shortHash(wallet.connection.address, 7)
-        : wallet.availability === "detecting"
-          ? "Finding Eternl"
-          : wallet.available
-            ? "Connect Eternl"
-            : "Set up Eternl";
+  const label = wallet.connection
+    ? shortHash(wallet.connection.address, 7)
+    : wallet.connectionActionLabel;
 
   const handlePrimaryClick = () => {
     if (panelOpen) {
@@ -180,6 +172,37 @@ export function WalletButton() {
                 Restoring your wallet connection
               </div>
             </>
+          ) : !wallet.available ? (
+            <>
+              <div className="wallet-panel-head">
+                <div>
+                  <span>Eternl not detected</span>
+                  <strong>Set up your wallet</strong>
+                </div>
+              </div>
+              <p role={wallet.error ? "alert" : undefined}>
+                {wallet.error ?? (
+                  <>
+                    On mobile, open Baton in a compatible wallet app. On
+                    desktop, install or enable Eternl for this browser. Then
+                    select Cardano Preprod.
+                  </>
+                )}
+              </p>
+              <div className="wallet-panel-actions wallet-setup-actions">
+                <button type="button" onClick={openWalletApp}>
+                  Open in mobile wallet
+                </button>
+                <a href="https://eternl.io" target="_blank" rel="noreferrer">
+                  Install Eternl
+                </a>
+                <button type="button" onClick={() => {
+                  window.location.reload();
+                }}>
+                  Reload after installing
+                </button>
+              </div>
+            </>
           ) : wallet.error ? (
             <>
               <div className="wallet-panel-head">
@@ -225,34 +248,7 @@ export function WalletButton() {
                 </button>
               </div>
             </>
-          ) : (
-            <>
-              <div className="wallet-panel-head">
-                <div>
-                  <span>Eternl not detected</span>
-                  <strong>Set up your wallet</strong>
-                </div>
-              </div>
-              <p>
-                On mobile, open Baton in a compatible wallet app. On desktop,
-                install or enable Eternl for this browser. Then select Cardano
-                Preprod.
-              </p>
-              <div className="wallet-panel-actions wallet-setup-actions">
-                <button type="button" onClick={openWalletApp}>
-                  Open in mobile wallet
-                </button>
-                <a href="https://eternl.io" target="_blank" rel="noreferrer">
-                  Install Eternl
-                </a>
-                <button type="button" onClick={() => {
-                  window.location.reload();
-                }}>
-                  Reload after installing
-                </button>
-              </div>
-            </>
-          )}
+          ) : null}
         </section>
       )}
     </div>
