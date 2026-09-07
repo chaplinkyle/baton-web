@@ -66,9 +66,9 @@ export default function Home() {
           <p>Use one clear plan for assets, digital property, or evidence you want preserved.</p>
         </div>
         <div className="purpose-grid">
-          <article><span aria-hidden="true">01</span><h3>Support your family</h3><p>Set aside ADA or Cardano tokens for a wallet you trust.</p></article>
-          <article><span aria-hidden="true">02</span><h3>Preserve digital property</h3><p>Protect meaningful NFTs and define how they can be received later.</p></article>
-          <article><span aria-hidden="true">03</span><h3>Protect your record</h3><p>Place a permanent fingerprint of a statement or file on-chain so its authenticity can be checked later. The file itself stays private.</p></article>
+          <article><span aria-hidden="true">ADA</span><h3>Support your family</h3><p>Set aside ADA or Cardano tokens for a wallet you trust.</p></article>
+          <article><span aria-hidden="true">NFT</span><h3>Preserve digital property</h3><p>Protect meaningful NFTs and define how they can be received later.</p></article>
+          <article><span aria-hidden="true">SHA</span><h3>Protect your record</h3><p>Place a permanent fingerprint of a statement or file on-chain so its authenticity can be checked later. The file itself stays private.</p></article>
         </div>
       </section>
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { EXPLORER_URL } from "@/lib/config";
+import { walletErrorMessage } from "@/lib/eternl";
 import {
   downloadManifest,
   parseManifest,
@@ -148,7 +149,13 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       setReview(null);
       await refresh(manifest);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Eternl did not complete this action.");
+      setError(
+        walletErrorMessage(
+          cause,
+          "Eternl did not complete this action.",
+          "transaction",
+        ),
+      );
     } finally {
       setBusy(false);
     }

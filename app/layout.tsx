@@ -32,22 +32,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteHeader />
           <main id="main-content" tabIndex={-1}>{children}</main>
           <footer className="site-footer">
-            <div>
-              <span className="brand footer-brand">
-                <BatonLogo className="brand-mark" />
-                <span className="brand-wordmark">Baton</span>
-              </span>
-              <p>A protected, self-managed handoff plan for Cardano.</p>
+            <div className="site-footer-inner">
+              <div>
+                <span className="brand footer-brand">
+                  <BatonLogo className="brand-mark" />
+                  <span className="brand-wordmark">Baton</span>
+                </span>
+                <p>A protected, self-managed handoff plan for Cardano.</p>
+              </div>
+              <div className="footer-links">
+                <a href="/legal/terms">Terms</a>
+                <a href="/legal/privacy">Privacy</a>
+                <a href="/legal/fees">Fees</a>
+                <a href="/risks">Risk disclosure</a>
+              </div>
+              <p className="footer-warning">
+                Software only—not a bank, custodian, will, trust, or proof of death.
+              </p>
             </div>
-            <div className="footer-links">
-              <a href="/legal/terms">Terms</a>
-              <a href="/legal/privacy">Privacy</a>
-              <a href="/legal/fees">Fees</a>
-              <a href="/risks">Risk disclosure</a>
-            </div>
-            <p className="footer-warning">
-              Software only—not a bank, custodian, will, trust, or proof of death.
-            </p>
           </footer>
         </Providers>
       </body>

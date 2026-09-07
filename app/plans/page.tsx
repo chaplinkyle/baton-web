@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Buffer } from "buffer";
 import { useWallet } from "@/app/providers";
+import { walletErrorMessage } from "@/lib/eternl";
 import {
   parseManifest,
   storeManifest,
@@ -82,7 +83,7 @@ export default function PlansPage() {
           storeManifest(plan.manifest);
         }
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Wallet plan discovery failed.");
+        setError(walletErrorMessage(cause, "Wallet plan discovery failed."));
       }
     }
 
@@ -179,7 +180,7 @@ export default function PlansPage() {
           <strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : "Connect Eternl to find your plans"}</strong>
           <small>{wallet.connection ? "Searching Cardano and this device" : "Saved plans on this device remain visible"}</small>
         </div>
-        {!wallet.connection && <button className="button secondary" onClick={wallet.connect}>Connect Eternl</button>}
+        {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>}
         {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading}>{loading ? "Checking…" : "Refresh"}</button>}
       </section>
 

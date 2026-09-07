@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const contentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
@@ -22,6 +22,8 @@ export const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  agentRules: false,
+  allowedDevOrigins: ["127.0.0.1"],
   poweredByHeader: false,
   serverExternalPackages: [
     "@anastasia-labs/cardano-multiplatform-lib-nodejs",

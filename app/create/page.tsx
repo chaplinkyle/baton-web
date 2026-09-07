@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Assets } from "@lucid-evolution/lucid";
 import Link from "next/link";
 import { useWallet } from "@/app/providers";
+import { walletErrorMessage } from "@/lib/eternl";
 import {
   CARDANO_NETWORK,
   EXPLORER_URL,
@@ -39,13 +40,25 @@ export default function CreateVault() {
     if (!heading) return;
     heading.tabIndex = -1;
     heading.focus({ preventScroll: true });
-    heading.scrollIntoView({ block: "start", behavior: "instant" });
+    const headerBottom = document
+      .querySelector<HTMLElement>(".site-header")
+      ?.getBoundingClientRect().bottom ?? 0;
+    const headingBox = heading.getBoundingClientRect();
+    if (
+      headingBox.top < headerBottom + 24 ||
+      headingBox.bottom > window.innerHeight - 24
+    ) {
+      window.scrollTo({
+        top: window.scrollY + headingBox.top - headerBottom - 24,
+        behavior: "auto",
+      });
+    }
   }, [step]);
   const [periodDays, setPeriodDays] = useState(7);
   const [misses, setMisses] = useState(4);
   const [ada, setAda] = useState("25");
   const [livenessAddress, setLivenessAddress] = useState("");
-  const [releaseMode, setReleaseMode] = useState<ReleaseMode>("bearer");
+  const [releaseMode, setReleaseMode] = useState<ReleaseMode>("fixed");
   const [destination, setDestination] = useState("");
   const [commitment, setCommitment] = useState("");
   const [walletAssets, setWalletAssets] = useState<WalletAsset[]>([]);
@@ -206,7 +219,13 @@ export default function CreateVault() {
       if (!confirmed) throw new Error("Transaction was submitted but confirmation was not observed.");
       setCreatedManifest(created);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Eternl did not submit the transaction.");
+      setError(
+        walletErrorMessage(
+          cause,
+          "Eternl did not submit the transaction.",
+          "transaction",
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -228,7 +247,6 @@ export default function CreateVault() {
         <p>Choose what to protect, how often you will check in, and how it can be received later. You will review every detail before Eternl asks you to approve anything.</p>
       </header>
 
-      {wallet.error && <div className="error-banner">{wallet.error}</div>}
       {error && <div className="error-banner">{error}</div>}
 
       <div className="wizard-layout">
@@ -257,9 +275,13 @@ export default function CreateVault() {
             <div className="form-section">
               <div className="form-heading"><span>01</span><div><h2>What do you want to protect?</h2><p>Choose your assets and the wallet you will use for regular check-ins.</p></div></div>
               <div className="connection-card">
-                <div><span>YOUR ETERNL WALLET</span><strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : "Not connected"}</strong></div>
-                {!wallet.connection && <button className="button secondary" onClick={wallet.connect}>Connect Eternl</button>}
-                {wallet.connection && <span className="ready-chip">CONNECTED</span>}
+                <div>
+                  <span>YOUR ETERNL WALLET</span>
+                  <strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : wallet.availability === "detecting" ? "Looking for Eternl…" : wallet.available ? "Ready to connect" : "Eternl not detected"}</strong>
+                  <small>{wallet.connection ? "Connected for this browser session · confirm Preprod in Eternl" : "Your wallet approves every transaction and keeps your keys."}</small>
+                </div>
+                {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>}
+                {wallet.connection && <span className="ready-chip">PREPROD</span>}
               </div>
               <div className="field-grid">
                 <label className="field"><span>ADA to protect</span><div className="input-suffix"><input type="number" min="5" step="1" value={ada} onChange={(e) => setAda(e.target.value)} /><b>ADA</b></div><small>The 5 ADA site fee and network fee are additional.</small></label>
@@ -270,17 +292,17 @@ export default function CreateVault() {
 
               {walletAssets.length > 0 && <div className="asset-picker"><div><h3>Tokens and NFTs</h3><p>Select any other Cardano assets you want to protect.</p></div><div className="asset-list">{walletAssets.map((asset) => <label key={asset.unit}><input type="checkbox" checked={protectedTokenUnits.includes(asset.unit)} onChange={() => toggleProtected(asset.unit)} /><span className="mono">{shortHash(asset.unit, 10)}</span><strong>{asset.quantity.toString()}</strong></label>)}</div></div>}
 
-              <label className="file-commit"><input type="file" onChange={(event) => hashFile(event.target.files?.[0])} /><span><strong>Add proof of a file (optional)</strong><small>The file never leaves your device. Only a fingerprint is recorded so someone can later prove that an unchanged copy existed. This plan does not store or deliver the file.</small></span>{commitment && <code>{shortHash(commitment, 12)}</code>}</label>
+              <label className="file-commit"><input className="visually-hidden" type="file" onChange={(event) => hashFile(event.target.files?.[0])} /><span className="file-picker-action">{commitment ? "Choose another file" : "Choose a file"}</span><span><strong>Add proof of a file (optional)</strong><small>The file never leaves your device. Only a fingerprint is recorded so someone can later prove that an unchanged copy existed. This plan does not store or deliver the file.</small></span>{commitment && <code aria-live="polite">{shortHash(commitment, 12)}</code>}</label>
               <div className="form-actions"><span /><button className="button primary" onClick={() => setStep(2)}>Choose who can receive it</button></div>
             </div>
           )}
 
           {step === 2 && (
             <div className="form-section">
-              <div className="form-heading"><span>02</span><div><h2>How should the handoff be received?</h2><p>You can name one Cardano address now, or use a recovery token without naming an address.</p></div></div>
+              <div className="form-heading"><span>02</span><div><h2>Choose one receiving method</h2><p>Each plan uses exactly one method. It cannot use both or switch methods later.</p></div></div>
               <div className="mode-selector">
-                <button aria-pressed={releaseMode === "fixed"} className={releaseMode === "fixed" ? "selected" : ""} onClick={() => setReleaseMode("fixed")}><span>CHOOSE AN ADDRESS NOW</span><strong>Family or trusted wallet</strong><p>After the waiting period, the assets can only go to the exact Cardano address you enter.</p></button>
-                <button aria-pressed={releaseMode === "bearer"} className={releaseMode === "bearer" ? "selected" : ""} onClick={() => setReleaseMode("bearer")}><span>NO ADDRESS NAMED</span><strong>Recovery token</strong><p>Baton creates one unique token. After the waiting period, its holder chooses the receiving address.</p></button>
+                <button type="button" aria-pressed={releaseMode === "fixed"} className={releaseMode === "fixed" ? "selected" : ""} onClick={() => setReleaseMode("fixed")}><span>OPTION 1 · ADDRESS CHOSEN NOW</span><strong>Fixed destination</strong><p>After the waiting period, the assets can only go to the exact Cardano address you enter. Recommended for most family plans.</p></button>
+                <button type="button" aria-pressed={releaseMode === "bearer"} className={releaseMode === "bearer" ? "selected" : ""} onClick={() => setReleaseMode("bearer")}><span>OPTION 2 · NO ADDRESS CHOSEN NOW</span><strong>Recovery token</strong><p>After the waiting period, whoever holds the unique token chooses the receiving address.</p></button>
               </div>
               {releaseMode === "bearer" ? (
                 <div className="field full-field"><div className="field"><span>Your Baton recovery token</span><strong>Created automatically with this plan</strong><small>It will be placed in your wallet, outside the protected plan. Give it to someone you trust; whoever holds it after the waiting period can receive the assets.</small></div></div>
