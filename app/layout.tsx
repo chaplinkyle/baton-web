@@ -8,7 +8,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://baton-web-gamma.vercel.app",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://baton-cardano.vercel.app",
   ),
   title: { default: "Baton", template: "%s · Baton" },
   description:
