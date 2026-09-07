@@ -56,6 +56,9 @@ export default function PlansPage() {
   const [transactionId, setTransactionId] = useState("");
   const [adding, setAdding] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
+  const waitingForWallet = wallet.connectionActivity !== "idle";
+  const waitingForApproval = wallet.connectionActivity === "requesting";
+  const plansArePending = loading || waitingForWallet;
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -183,13 +186,25 @@ export default function PlansPage() {
 
       <section className="plans-account">
         <div>
-          <span>CONNECTED WALLET</span>
-          <strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : "Connect Eternl to find your plans"}</strong>
+          <span>ETERNL WALLET</span>
+          <strong>{wallet.connection
+            ? shortHash(wallet.connection.address, 12)
+            : waitingForApproval
+              ? "Waiting for your approval"
+              : wallet.connectionActivity === "restoring"
+                ? "Restoring your account"
+                : wallet.availability === "detecting"
+                  ? "Looking for Eternl…"
+                  : "Connect Eternl to find your plans"}</strong>
           <small>{wallet.connection
             ? loading
               ? "Searching Cardano and this device"
               : `${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
-            : "Saved plans on this device remain visible"}</small>
+            : waitingForApproval
+              ? "Approve Baton in Eternl; no transaction is being submitted"
+              : wallet.connectionActivity === "restoring"
+                ? "Using the wallet access you already approved"
+                : "Saved plans on this device remain visible"}</small>
         </div>
         {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}
         {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading}>{loading ? "Checking…" : "Refresh"}</button>}
@@ -199,16 +214,17 @@ export default function PlansPage() {
       {notice && <div className="plans-notice" role="status">{notice}</div>}
 
       <section className="plans-overview" aria-live="polite">
-        <div><span>PLANS FOUND</span><strong>{loading ? "—" : plans.length}</strong></div>
-        <div><span>YOU CREATED</span><strong>{loading ? "—" : plans.filter((plan) => plan.roles.includes("owner")).length}</strong></div>
-        <div><span>YOU CHECK IN</span><strong>{loading ? "—" : plans.filter((plan) => plan.roles.includes("check-in")).length}</strong></div>
-        <div><span>YOU CAN RECEIVE</span><strong>{loading ? "—" : plans.filter((plan) => plan.roles.includes("recipient") || plan.roles.includes("recovery holder")).length}</strong></div>
+        <div><span>PLANS FOUND</span><strong>{plansArePending ? "—" : plans.length}</strong></div>
+        <div><span>YOU CREATED</span><strong>{plansArePending ? "—" : plans.filter((plan) => plan.roles.includes("owner")).length}</strong></div>
+        <div><span>YOU CHECK IN</span><strong>{plansArePending ? "—" : plans.filter((plan) => plan.roles.includes("check-in")).length}</strong></div>
+        <div><span>YOU CAN RECEIVE</span><strong>{plansArePending ? "—" : plans.filter((plan) => plan.roles.includes("recipient") || plan.roles.includes("recovery holder")).length}</strong></div>
       </section>
 
       <section className="plans-list">
-        {loading && <div className="plans-empty"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
-        {!loading && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID.</p></div>}
-        {!loading && plans.map((plan) => {
+        {waitingForWallet && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{waitingForApproval ? "Waiting for Eternl…" : "Restoring your wallet…"}</h2><p>{waitingForApproval ? "Approve or decline the connection in Eternl. Baton will search only after you approve it." : "Baton is reconnecting to the account you already approved. No new approval is required."}</p></div>}
+        {!waitingForWallet && loading && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
+        {!waitingForWallet && !loading && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID.</p></div>}
+        {!waitingForWallet && !loading && plans.map((plan) => {
           const active = plan.lifecycle?.kind === "active" ? plan.lifecycle.state : null;
           const status = active
             ? vaultStatus(clock, active.lastCheckInAtMs, plan.manifest.checkInPeriodMs, plan.manifest.missesToRelease)
