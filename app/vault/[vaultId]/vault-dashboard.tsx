@@ -263,7 +263,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
             {!wallet.connection ? <div className="action-guidance">
               <strong>Connect the wallet for this plan</strong>
               <p>Baton will confirm whether this account owns the plan, checks it in, or holds its recovery token. Connecting does not submit a transaction.</p>
-              <button className="connect-inline" onClick={wallet.connect} disabled={wallet.connecting}>{wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>
+              <button className="connect-inline" onClick={wallet.connect} disabled={wallet.connecting}>{wallet.connectionActivity === "restoring" ? "Restoring Eternl…" : wallet.connecting ? "Approve in Eternl" : "Connect Eternl"}</button>
             </div> : status === "claimable" && manifest.releaseMode === "fixed" ? <>
               <div className="action-role">Fixed receiving address</div>
               <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Complete the handoff<span>The complete protected value can only go to the chosen address</span></button>

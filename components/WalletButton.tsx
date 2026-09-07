@@ -17,7 +17,8 @@ export function WalletButton() {
   // A request started from Create or My Plans should be just as legible as one
   // started here. Keep the approval guidance visible until Eternl resolves the
   // request so the disabled button never looks like an unexplained spinner.
-  const panelOpen = open || wallet.connecting || Boolean(wallet.error);
+  const approvalRequested = wallet.connectionActivity === "requesting";
+  const panelOpen = open || approvalRequested || Boolean(wallet.error);
 
   const closePanel = useCallback((restoreFocus = false) => {
     setOpen(false);
@@ -66,15 +67,17 @@ export function WalletButton() {
     window.location.assign(cardanoBrowseUri(window.location.href));
   }
 
-  const label = wallet.connecting
+  const label = wallet.connectionActivity === "requesting"
     ? "Approve in Eternl"
-    : wallet.connection
-      ? shortHash(wallet.connection.address, 7)
-      : wallet.availability === "detecting"
-        ? "Finding Eternl"
-        : wallet.available
-          ? "Connect Eternl"
-          : "Set up Eternl";
+    : wallet.connectionActivity === "restoring"
+      ? "Restoring Eternl"
+      : wallet.connection
+        ? shortHash(wallet.connection.address, 7)
+        : wallet.availability === "detecting"
+          ? "Finding Eternl"
+          : wallet.available
+            ? "Connect Eternl"
+            : "Set up Eternl";
 
   const handlePrimaryClick = () => {
     if (panelOpen) {
@@ -145,7 +148,7 @@ export function WalletButton() {
                 </button>
               </div>
             </>
-          ) : wallet.connecting ? (
+          ) : wallet.connectionActivity === "requesting" ? (
             <>
               <div className="wallet-panel-head">
                 <div>
@@ -159,6 +162,22 @@ export function WalletButton() {
               </p>
               <div className="wallet-pending-note" role="status">
                 Waiting for your decision in Eternl
+              </div>
+            </>
+          ) : wallet.connectionActivity === "restoring" ? (
+            <>
+              <div className="wallet-panel-head">
+                <div>
+                  <span>Restoring Eternl</span>
+                  <strong>Checking your authorized account</strong>
+                </div>
+              </div>
+              <p>
+                Baton is restoring the wallet access you already approved. No
+                new approval or transaction is being requested.
+              </p>
+              <div className="wallet-pending-note" role="status">
+                Restoring your wallet connection
               </div>
             </>
           ) : wallet.error ? (

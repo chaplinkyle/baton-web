@@ -20,6 +20,7 @@ import {
 } from "@/lib/eternl";
 
 export type WalletAvailability = "detecting" | "available" | "missing";
+export type WalletConnectionActivity = "idle" | "restoring" | "requesting";
 
 const DETECTION_GRACE_MS = 800;
 const LATE_INJECTION_WINDOW_MS = 5_000;
@@ -49,6 +50,7 @@ function setReconnectSuppressed(suppressed: boolean) {
 type WalletContextValue = {
   connection: EternlConnection | null;
   connecting: boolean;
+  connectionActivity: WalletConnectionActivity;
   error: string | null;
   available: boolean;
   availability: WalletAvailability;
@@ -61,7 +63,8 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function Providers({ children }: { children: ReactNode }) {
   const [connection, setConnection] = useState<EternlConnection | null>(null);
-  const [connecting, setConnecting] = useState(false);
+  const [connectionActivity, setConnectionActivity] =
+    useState<WalletConnectionActivity>("idle");
   const [error, setError] = useState<string | null>(null);
   const [availability, setAvailability] =
     useState<WalletAvailability>("detecting");
@@ -89,7 +92,7 @@ export function Providers({ children }: { children: ReactNode }) {
     }
 
     connectingRef.current = true;
-    setConnecting(true);
+    setConnectionActivity(silent ? "restoring" : "requesting");
     setAvailability("available");
     if (!silent) setError(null);
     try {
@@ -108,7 +111,7 @@ export function Providers({ children }: { children: ReactNode }) {
       }
     } finally {
       connectingRef.current = false;
-      setConnecting(false);
+      setConnectionActivity("idle");
     }
   }, []);
 
@@ -226,7 +229,8 @@ export function Providers({ children }: { children: ReactNode }) {
   const value = useMemo<WalletContextValue>(
     () => ({
       connection,
-      connecting,
+      connecting: connectionActivity !== "idle",
+      connectionActivity,
       error,
       available: availability === "available",
       availability,
@@ -238,8 +242,8 @@ export function Providers({ children }: { children: ReactNode }) {
       availability,
       clearError,
       connect,
-      connecting,
       connection,
+      connectionActivity,
       disconnect,
       error,
     ],
