@@ -78,6 +78,7 @@ export function Providers({ children }: { children: ReactNode }) {
     useState<WalletAvailability>("detecting");
   const connectingRef = useRef(false);
   const connectedRef = useRef(false);
+  const operationVersionRef = useRef(0);
   const reconnectSuppressedRef = useRef(false);
   const reconnectPreferenceLoadedRef = useRef(false);
 
@@ -103,18 +104,21 @@ export function Providers({ children }: { children: ReactNode }) {
       return;
     }
 
+    const operationVersion = ++operationVersionRef.current;
     connectingRef.current = true;
     setConnectionActivity(silent ? "restoring" : "requesting");
     setAvailability("available");
     if (!silent) setIssue(null);
     try {
       const nextConnection = await connectEternl();
+      if (operationVersionRef.current !== operationVersion) return;
       connectedRef.current = true;
       setConnection(nextConnection);
       setIssue(null);
       reconnectSuppressedRef.current = false;
       setReconnectSuppressed(false);
     } catch (cause) {
+      if (operationVersionRef.current !== operationVersion) return;
       const connectionWasActive = connectedRef.current;
       connectedRef.current = false;
       setConnection(null);
@@ -125,8 +129,10 @@ export function Providers({ children }: { children: ReactNode }) {
         });
       }
     } finally {
-      connectingRef.current = false;
-      setConnectionActivity("idle");
+      if (operationVersionRef.current === operationVersion) {
+        connectingRef.current = false;
+        setConnectionActivity("idle");
+      }
     }
   }, []);
 
@@ -138,6 +144,8 @@ export function Providers({ children }: { children: ReactNode }) {
   const refreshConnection = useCallback(async (current: EternlConnection) => {
     if (connectingRef.current) return;
     if (!isEternlAvailable()) {
+      operationVersionRef.current += 1;
+      connectingRef.current = false;
       setAvailability("missing");
       connectedRef.current = false;
       setConnection(null);
@@ -149,10 +157,12 @@ export function Providers({ children }: { children: ReactNode }) {
       return;
     }
 
+    const operationVersion = ++operationVersionRef.current;
     connectingRef.current = true;
     setAvailability("available");
     try {
       const nextConnection = await refreshEternlConnection(current);
+      if (operationVersionRef.current !== operationVersion) return;
       connectedRef.current = true;
       setIssue(null);
       if (
@@ -163,6 +173,7 @@ export function Providers({ children }: { children: ReactNode }) {
         setConnection(nextConnection);
       }
     } catch (cause) {
+      if (operationVersionRef.current !== operationVersion) return;
       // The connection -> null transition reruns the discovery effect. Keep it
       // from immediately calling enable() again after a failed background
       // refresh; the visible Try again action is the next authority boundary.
@@ -177,13 +188,18 @@ export function Providers({ children }: { children: ReactNode }) {
         ),
       });
     } finally {
-      connectingRef.current = false;
+      if (operationVersionRef.current === operationVersion) {
+        connectingRef.current = false;
+      }
     }
   }, []);
 
   const disconnect = useCallback(() => {
+    operationVersionRef.current += 1;
+    connectingRef.current = false;
     reconnectSuppressedRef.current = true;
     connectedRef.current = false;
+    setConnectionActivity("idle");
     setConnection(null);
     setIssue(null);
     setReconnectSuppressed(true);
@@ -205,10 +221,15 @@ export function Providers({ children }: { children: ReactNode }) {
       if (isEternlAvailable()) {
         setAvailability("available");
         setIssue((current) => current?.kind === "missing" ? null : current);
-        if (
+        const authorized =
           !reconnectSuppressedRef.current &&
           !connection &&
-          await wasEternlAuthorized()
+          await wasEternlAuthorized();
+        if (
+          !cancelled &&
+          !reconnectSuppressedRef.current &&
+          !connectedRef.current &&
+          authorized
         ) {
           await establishConnection(true);
         }

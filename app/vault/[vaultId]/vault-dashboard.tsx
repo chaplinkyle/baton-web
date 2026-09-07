@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { EXPLORER_URL } from "@/lib/config";
 import { walletErrorMessage } from "@/lib/eternl";
@@ -46,10 +46,14 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<ActionReview | null>(null);
+  const [reviewWalletAddress, setReviewWalletAddress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const [walletRoleResult, setWalletRoleResult] = useState<WalletRoleResult | null>(null);
+  const refreshVersionRef = useRef(0);
+  const walletAddress = wallet.connection?.address ?? null;
+  const activeReview = reviewWalletAddress === walletAddress ? review : null;
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -88,12 +92,17 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   }, [manifest, wallet.connection]);
 
   const refresh = useCallback(async (knownManifest: VaultManifest) => {
+    const refreshVersion = ++refreshVersionRef.current;
+    const connection = wallet.connection;
+    const isCurrent = () => refreshVersionRef.current === refreshVersion;
     setLoading(true);
     setError(null);
     try {
       const { readVaultLifecycle, readOnlyLucid } = await import("@/lib/vault-state");
-      const lucid = wallet.connection?.lucid ?? await readOnlyLucid();
+      const lucid = connection?.lucid ?? await readOnlyLucid();
+      if (!isCurrent()) return;
       const lifecycle = await readVaultLifecycle(lucid, knownManifest);
+      if (!isCurrent()) return;
       if (lifecycle.kind === "active") {
         setState(lifecycle.state);
         setCompleted(null);
@@ -102,11 +111,12 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         setCompleted(lifecycle.state);
       }
     } catch (cause) {
+      if (!isCurrent()) return;
       setState(null);
       setCompleted(null);
       setError(cause instanceof Error ? cause.message : "Your confirmed plan could not be read from Cardano.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [wallet.connection]);
 
@@ -129,7 +139,10 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         setError(cause instanceof Error ? cause.message : "Stored manifest is invalid.");
       }
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      refreshVersionRef.current += 1;
+    };
   }, [refresh, vaultId]);
 
   async function importFile(file: File | undefined) {
@@ -145,12 +158,14 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   }
 
   async function prepare(action: "pulse" | "close" | "release") {
-    if (!wallet.connection || !manifest || !state) {
+    const connection = wallet.connection;
+    if (!connection || !manifest || !state) {
       setError("Connect the Eternl account needed for this action.");
       return;
     }
     setBusy(true);
     setReview(null);
+    setReviewWalletAddress(null);
     setSubmitted(null);
     setError(null);
     try {
@@ -160,15 +175,16 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         buildRelease,
         readConfirmedVault,
       } = await import("@/lib/vault-state");
-      const fresh = await readConfirmedVault(wallet.connection.lucid, manifest);
-      setState(fresh);
-      setReview(
+      const fresh = await readConfirmedVault(connection.lucid, manifest);
+      const nextReview =
         action === "pulse"
-          ? await buildPulse(wallet.connection.lucid, manifest, fresh)
+          ? await buildPulse(connection.lucid, manifest, fresh)
           : action === "close"
-            ? await buildClose(wallet.connection.lucid, manifest, fresh)
-            : await buildRelease(wallet.connection.lucid, manifest, fresh),
-      );
+            ? await buildClose(connection.lucid, manifest, fresh)
+            : await buildRelease(connection.lucid, manifest, fresh);
+      setState(fresh);
+      setReview(nextReview);
+      setReviewWalletAddress(connection.address);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "This action could not be prepared.");
     } finally {
@@ -177,12 +193,13 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   }
 
   async function signAndSubmit() {
-    if (!review || !wallet.connection || !manifest) return;
+    if (!activeReview || !wallet.connection || !manifest) return;
+    const reviewed = activeReview;
     setBusy(true);
     setError(null);
     try {
       const { signAndSubmitAction } = await import("@/lib/vault-state");
-      const txHash = await signAndSubmitAction(review);
+      const txHash = await signAndSubmitAction(reviewed);
       setSubmitted(txHash);
       const confirmed = await wallet.connection.lucid.awaitTx(txHash);
       if (!confirmed) throw new Error("Transaction was submitted but confirmation was not observed.");
@@ -296,7 +313,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
           </div>
         </section>
 
-        {review && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{review.action === "pulse" ? "Check in" : review.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(review.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(review.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{review.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{review.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{review.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(review.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(review.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => setReview(null)}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for confirmation…" : "Approve in Eternl"}</button></div></section>}
+        {activeReview && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{activeReview.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{activeReview.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => setReview(null)}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for confirmation…" : "Approve in Eternl"}</button></div></section>}
 
         {submitted && <div className="success-box"><span>CONFIRMED ON CARDANO</span><h3>Your action is complete.</h3><a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a></div>}
       </>}

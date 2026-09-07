@@ -177,6 +177,10 @@ returned a signature or transaction ID.
   transaction with unsafe collateral behavior.
 - Submission failed: do not call the pulse successful; re-query canonical state.
 - Account changed: invalidate the unsigned transaction and reconnect.
+- Disconnect during a wallet request: invalidate every in-flight connection or
+  identity result. A late success, failure, or timeout must not reconnect the
+  wallet, reopen an error panel, or change the user's explicit disconnected
+  state.
 
 ## Security tests
 
@@ -188,6 +192,8 @@ returned a signature or transaction ID.
 - Reject a changed operator address or fee on creation.
 - Exercise Eternl extension and dApp-browser paths on Cardano test networks.
 - Test wallet account changes and transaction review races.
+- Test disconnect while an identity refresh is pending, then wait beyond the
+  provider timeout and confirm that no stale result reaches the interface.
 - Confirm collateral remains unspent after successful script execution.
 - Confirm the site reports schedules only from confirmed on-chain state.
 

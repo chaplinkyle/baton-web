@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Buffer } from "buffer";
 import { useWallet } from "@/app/providers";
 import { walletErrorMessage } from "@/lib/eternl";
@@ -56,6 +56,7 @@ export default function PlansPage() {
   const [transactionId, setTransactionId] = useState("");
   const [adding, setAdding] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
+  const refreshVersionRef = useRef(0);
   const waitingForWallet = wallet.connectionActivity !== "idle";
   const waitingForApproval = wallet.connectionActivity === "requesting";
   const plansArePending = loading || waitingForWallet;
@@ -66,6 +67,9 @@ export default function PlansPage() {
   }, []);
 
   const refresh = useCallback(async () => {
+    const refreshVersion = ++refreshVersionRef.current;
+    const connection = wallet.connection;
+    const isCurrent = () => refreshVersionRef.current === refreshVersion;
     const browserGlobals = globalThis as typeof globalThis & { Buffer?: typeof Buffer };
     browserGlobals.Buffer ??= Buffer;
     const [{ discoverWalletManifests, rolesForManifest }, { readOnlyLucid, readVaultLifecycle }] =
@@ -76,13 +80,14 @@ export default function PlansPage() {
     const merged = new Map<string, { manifest: VaultManifest; roles: PlanRole[]; foundThroughWallet: boolean }>();
 
     let walletAssets: Assets = {};
-    if (wallet.connection) {
+    if (connection) {
       try {
-        walletAssets = combineAssets(await wallet.connection.lucid.wallet().getUtxos());
+        walletAssets = combineAssets(await connection.lucid.wallet().getUtxos());
         const discovered = await discoverWalletManifests(
-          wallet.connection.lucid,
-          wallet.connection.paymentKeyHash,
+          connection.lucid,
+          connection.paymentKeyHash,
         );
+        if (!isCurrent()) return;
         for (const plan of discovered) {
           merged.set(plan.manifest.creationTx, {
             ...plan,
@@ -91,14 +96,16 @@ export default function PlansPage() {
           storeManifest(plan.manifest);
         }
       } catch (cause) {
+        if (!isCurrent()) return;
         setError(walletErrorMessage(cause, "Wallet plan discovery failed."));
       }
     }
 
+    if (!isCurrent()) return;
     for (const manifest of local) {
       const existing = merged.get(manifest.creationTx);
-      const roles = wallet.connection
-        ? rolesForManifest(manifest, wallet.connection.paymentKeyHash, walletAssets)
+      const roles = connection
+        ? rolesForManifest(manifest, connection.paymentKeyHash, walletAssets)
         : [];
       merged.set(manifest.creationTx, {
         manifest,
@@ -108,7 +115,8 @@ export default function PlansPage() {
     }
 
     try {
-      const lucid = wallet.connection?.lucid ?? await readOnlyLucid();
+      const lucid = connection?.lucid ?? await readOnlyLucid();
+      if (!isCurrent()) return;
       const loaded = await Promise.all(
         [...merged.values()].map(async (plan): Promise<LoadedPlan> => {
           try {
@@ -124,19 +132,24 @@ export default function PlansPage() {
           }
         }),
       );
+      if (!isCurrent()) return;
       loaded.sort((left, right) => right.manifest.lastCheckInAtMs - left.manifest.lastCheckInAtMs);
       setPlans(loaded);
     } catch (cause) {
+      if (!isCurrent()) return;
       setPlans([]);
       setError(cause instanceof Error ? cause.message : "Baton could not read plans from Cardano.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [wallet.connection]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      refreshVersionRef.current += 1;
+    };
   }, [refresh]);
 
   async function addByTransaction() {
