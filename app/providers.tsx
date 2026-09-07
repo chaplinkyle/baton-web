@@ -17,6 +17,7 @@ import type {
 } from "@/lib/eternl";
 import {
   connectEternl,
+  isWalletAccountChangeError,
   isEternlAvailable,
   refreshEternlConnection,
   walletConnectionActionLabel,
@@ -27,6 +28,7 @@ import {
 const DETECTION_GRACE_MS = 800;
 const LATE_INJECTION_WINDOW_MS = 5_000;
 const RECONNECT_SUPPRESSION_KEY = "baton:wallet-reconnect-suppressed:v1";
+type ConnectionMode = "manual" | "restore" | "account-change";
 
 type WalletIssue = {
   kind: "missing" | "connection" | "refresh";
@@ -82,66 +84,77 @@ export function Providers({ children }: { children: ReactNode }) {
   const reconnectSuppressedRef = useRef(false);
   const reconnectPreferenceLoadedRef = useRef(false);
 
-  const establishConnection = useCallback(async (silent = false) => {
-    if (connectingRef.current) return;
-    if (!isEternlAvailable()) {
-      setAvailability("missing");
-      if (connectedRef.current) {
+  const establishConnection = useCallback(
+    async (mode: ConnectionMode = "manual") => {
+      const silent = mode !== "manual";
+      if (connectingRef.current) return;
+      if (!isEternlAvailable()) {
+        setAvailability("missing");
+        if (connectedRef.current) {
+          connectedRef.current = false;
+          setConnection(null);
+          setIssue({
+            kind: "missing",
+            message:
+              "Eternl is no longer available in this browser. Reopen or enable Eternl, then reconnect Baton.",
+          });
+        } else if (!silent) {
+          setIssue({
+            kind: "missing",
+            message:
+              "Eternl was not detected. Install the extension or open Baton in Eternl's dApp browser, then try again.",
+          });
+        }
+        return;
+      }
+
+      const operationVersion = ++operationVersionRef.current;
+      connectingRef.current = true;
+      setConnectionActivity(
+        mode === "manual"
+          ? "requesting"
+          : mode === "account-change"
+            ? "switching"
+            : "restoring",
+      );
+      setAvailability("available");
+      if (!silent) setIssue(null);
+      try {
+        const nextConnection = await connectEternl(() => {
+          if (operationVersionRef.current === operationVersion) {
+            setConnectionActivity("checking");
+          }
+        });
+        if (operationVersionRef.current === operationVersion) {
+          connectedRef.current = true;
+          setConnection(nextConnection);
+          setIssue(null);
+          reconnectSuppressedRef.current = false;
+          setReconnectSuppressed(false);
+        }
+      } catch (cause) {
+        if (operationVersionRef.current !== operationVersion) return;
+        const connectionWasActive = connectedRef.current;
         connectedRef.current = false;
         setConnection(null);
-        setIssue({
-          kind: "missing",
-          message:
-            "Eternl is no longer available in this browser. Reopen or enable Eternl, then reconnect Baton.",
-        });
-      } else if (!silent) {
-        setIssue({
-          kind: "missing",
-          message:
-            "Eternl was not detected. Install the extension or open Baton in Eternl's dApp browser, then try again.",
-        });
-      }
-      return;
-    }
-
-    const operationVersion = ++operationVersionRef.current;
-    connectingRef.current = true;
-    setConnectionActivity(silent ? "restoring" : "requesting");
-    setAvailability("available");
-    if (!silent) setIssue(null);
-    try {
-      const nextConnection = await connectEternl(() => {
-        if (operationVersionRef.current === operationVersion) {
-          setConnectionActivity("checking");
+        if (!silent || connectionWasActive || mode === "account-change") {
+          setIssue({
+            kind: "connection",
+            message: walletErrorMessage(cause, "Eternl connection failed."),
+          });
         }
-      });
-      if (operationVersionRef.current !== operationVersion) return;
-      connectedRef.current = true;
-      setConnection(nextConnection);
-      setIssue(null);
-      reconnectSuppressedRef.current = false;
-      setReconnectSuppressed(false);
-    } catch (cause) {
-      if (operationVersionRef.current !== operationVersion) return;
-      const connectionWasActive = connectedRef.current;
-      connectedRef.current = false;
-      setConnection(null);
-      if (!silent || connectionWasActive) {
-        setIssue({
-          kind: "connection",
-          message: walletErrorMessage(cause, "Eternl connection failed."),
-        });
+      } finally {
+        if (operationVersionRef.current === operationVersion) {
+          connectingRef.current = false;
+          setConnectionActivity("idle");
+        }
       }
-    } finally {
-      if (operationVersionRef.current === operationVersion) {
-        connectingRef.current = false;
-        setConnectionActivity("idle");
-      }
-    }
-  }, []);
+    },
+    [],
+  );
 
   const connect = useCallback(
-    async () => establishConnection(false),
+    async () => establishConnection("manual"),
     [establishConnection],
   );
 
@@ -162,6 +175,7 @@ export function Providers({ children }: { children: ReactNode }) {
     }
 
     const operationVersion = ++operationVersionRef.current;
+    let accountChanged = false;
     connectingRef.current = true;
     setAvailability("available");
     try {
@@ -179,25 +193,35 @@ export function Providers({ children }: { children: ReactNode }) {
       }
     } catch (cause) {
       if (operationVersionRef.current !== operationVersion) return;
-      // The connection -> null transition reruns the discovery effect. Keep it
-      // from immediately calling enable() again after a failed background
-      // refresh; the visible Try again action is the next authority boundary.
-      reconnectSuppressedRef.current = true;
-      connectedRef.current = false;
-      setConnection(null);
-      setIssue({
-        kind: "refresh",
-        message: walletErrorMessage(
-          cause,
-          "Baton could not refresh the selected Eternl account.",
-        ),
-      });
+      if (isWalletAccountChangeError(cause)) {
+        connectedRef.current = false;
+        setConnection(null);
+        setIssue(null);
+        accountChanged = true;
+      } else {
+        // The connection -> null transition reruns the discovery effect. Keep
+        // it from immediately calling enable() again after a failed background
+        // refresh; the visible Try again action is the next authority boundary.
+        reconnectSuppressedRef.current = true;
+        connectedRef.current = false;
+        setConnection(null);
+        setIssue({
+          kind: "refresh",
+          message: walletErrorMessage(
+            cause,
+            "Baton could not refresh the selected Eternl account.",
+          ),
+        });
+      }
     } finally {
       if (operationVersionRef.current === operationVersion) {
         connectingRef.current = false;
       }
     }
-  }, []);
+    if (accountChanged && operationVersionRef.current === operationVersion) {
+      await establishConnection("account-change");
+    }
+  }, [establishConnection]);
 
   const disconnect = useCallback(() => {
     operationVersionRef.current += 1;
@@ -236,7 +260,7 @@ export function Providers({ children }: { children: ReactNode }) {
           !connectedRef.current &&
           authorized
         ) {
-          await establishConnection(true);
+          await establishConnection("restore");
         }
         return;
       }

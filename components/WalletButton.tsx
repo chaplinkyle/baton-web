@@ -227,6 +227,22 @@ export function WalletButton() {
                 Finishing the secure connection
               </div>
             </>
+          ) : wallet.connectionActivity === "switching" ? (
+            <>
+              <div className="wallet-panel-head">
+                <div>
+                  <span>Eternl account changed</span>
+                  <strong>Connecting the account you selected</strong>
+                </div>
+              </div>
+              <p>
+                Baton stopped using the previous account and is reading the
+                new one. Nothing is being signed or submitted.
+              </p>
+              <div className="wallet-pending-note" role="status">
+                Updating your wallet account
+              </div>
+            </>
           ) : wallet.connectionActivity === "restoring" ? (
             <>
               <div className="wallet-panel-head">

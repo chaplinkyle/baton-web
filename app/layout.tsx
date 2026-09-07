@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "@fontsource-variable/inter";
 import "@fontsource/ibm-plex-mono/400.css";
 import "./globals.css";
@@ -43,10 +44,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <p>A protected, self-managed handoff plan for Cardano.</p>
               </div>
               <div className="footer-links">
-                <a href="/legal/terms">Terms</a>
-                <a href="/legal/privacy">Privacy</a>
-                <a href="/legal/fees">Fees</a>
-                <a href="/risks">Risk disclosure</a>
+                <Link href="/legal/terms">Terms</Link>
+                <Link href="/legal/privacy">Privacy</Link>
+                <Link href="/legal/fees">Fees</Link>
+                <Link href="/risks">Risk disclosure</Link>
               </div>
               <p className="footer-warning">
                 Software only—not a bank, custodian, will, trust, or proof of death.

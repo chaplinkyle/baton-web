@@ -60,17 +60,22 @@ export default function PlansPage() {
   const waitingForWallet = wallet.connectionActivity !== "idle";
   const waitingForApproval = wallet.connectionActivity === "requesting";
   const checkingPreprod = wallet.connectionActivity === "checking";
+  const switchingAccount = wallet.connectionActivity === "switching";
   const plansArePending = loading || waitingForWallet;
   const walletProgressTitle = waitingForApproval
     ? "Waiting for Eternl…"
     : checkingPreprod
       ? "Checking your wallet network…"
-      : "Restoring your wallet…";
+      : switchingAccount
+        ? "Updating your Eternl account…"
+        : "Restoring your wallet…";
   const walletProgressCopy = waitingForApproval
     ? "Approve or decline the connection in Eternl. Baton will search only after you approve it."
     : checkingPreprod
       ? "Eternl is approved. Baton is checking the network and preparing confirmed Cardano data; nothing is being signed or submitted."
-      : "Baton is reconnecting to the account you already approved. No new approval is required.";
+      : switchingAccount
+        ? "Baton stopped using the previous account and is reading the one you selected. Nothing is being signed or submitted."
+        : "Baton is reconnecting to the account you already approved. No new approval is required.";
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -224,11 +229,13 @@ export default function PlansPage() {
               ? "Waiting for your approval"
               : checkingPreprod
                 ? "Checking your wallet network"
-              : wallet.connectionActivity === "restoring"
-                ? "Restoring your account"
-                : wallet.availability === "detecting"
-                  ? "Looking for Eternl…"
-                  : "Connect Eternl to find your plans"}</strong>
+                : switchingAccount
+                  ? "Updating your Eternl account"
+                  : wallet.connectionActivity === "restoring"
+                    ? "Restoring your account"
+                    : wallet.availability === "detecting"
+                      ? "Looking for Eternl…"
+                      : "Connect Eternl to find your plans"}</strong>
           <small>{wallet.connection
             ? loading
               ? "Searching Cardano and this device"
@@ -237,9 +244,11 @@ export default function PlansPage() {
               ? "Approve Baton in Eternl; no transaction is being submitted"
               : checkingPreprod
                 ? "Eternl is approved; nothing is being signed or submitted"
-              : wallet.connectionActivity === "restoring"
-                ? "Using the wallet access you already approved"
-                : "Saved plans on this device remain visible"}</small>
+                : switchingAccount
+                  ? "The previous account is no longer in use"
+                  : wallet.connectionActivity === "restoring"
+                    ? "Using the wallet access you already approved"
+                    : "Saved plans on this device remain visible"}</small>
         </div>
         {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}
         {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading}>{loading ? "Checking…" : "Refresh"}</button>}

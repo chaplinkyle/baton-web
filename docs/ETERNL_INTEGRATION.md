@@ -190,6 +190,11 @@ returned a signature or transaction ID.
   transaction with unsafe collateral behavior.
 - Submission failed: do not call the pulse successful; re-query canonical state.
 - Account changed: invalidate the unsigned transaction and reconnect.
+- CIP-30 account change: discard the previous account immediately and call
+  `enable()` again to establish the account selected in Eternl. CIP-30 requires
+  this re-establishment and says an already user-initiated account change should
+  not trigger another permission prompt. Baton shows a distinct updating state
+  and never leaves the previous account actionable during the transition.
 - Transient provider timeout: retry one idempotent network-initialization read,
   then show short guidance that confirms nothing changed. Signing and
   submission are never retried automatically.

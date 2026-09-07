@@ -4,6 +4,7 @@ import {
   cardanoBrowseUri,
   type EternlConnection,
   isExactWalletNetwork,
+  isWalletAccountChangeError,
   refreshEternlConnection,
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
@@ -21,6 +22,7 @@ test("wallet actions describe every discovery and connection state consistently"
   assert.equal(walletConnectionActionLabel("requesting", "available"), "Approve in Eternl");
   assert.equal(walletConnectionActionLabel("restoring", "available"), "Restoring Eternl…");
   assert.equal(walletConnectionActionLabel("checking", "available"), "Checking wallet…");
+  assert.equal(walletConnectionActionLabel("switching", "available"), "Updating account…");
 });
 
 test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () => {
@@ -195,11 +197,11 @@ test("CIP-30 transaction decline code is handled without provider text", () => {
   );
 });
 
-test("account changes require a fresh connection", () => {
-  assert.match(
-    walletErrorMessage({ code: -4, info: "Account changed" }),
-    /account changed.*reconnect/i,
-  );
+test("account changes are detected from CIP-30 codes and provider wording", () => {
+  assert.equal(isWalletAccountChangeError({ code: -4 }), true);
+  assert.equal(isWalletAccountChangeError({ info: "Account has changed" }), true);
+  assert.equal(isWalletAccountChangeError({ info: "Network changed" }), false);
+  assert.match(walletErrorMessage({ code: -4 }), /stopped using the previous account/i);
 });
 
 test("provider network errors retain their useful detail", () => {

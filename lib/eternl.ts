@@ -16,7 +16,12 @@ const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
 
 export type WalletAvailability = "detecting" | "available" | "missing";
-export type WalletConnectionActivity = "idle" | "restoring" | "requesting" | "checking";
+export type WalletConnectionActivity =
+  | "idle"
+  | "restoring"
+  | "requesting"
+  | "checking"
+  | "switching";
 
 type Cip30Extension = { cip: number };
 type EternlWalletApi = WalletApi & {
@@ -62,6 +67,7 @@ export function walletConnectionActionLabel(
   if (activity === "requesting") return "Approve in Eternl";
   if (activity === "restoring") return "Restoring Eternl…";
   if (activity === "checking") return "Checking wallet…";
+  if (activity === "switching") return "Updating account…";
   if (availability === "detecting") return "Finding Eternl…";
   if (availability === "available") return "Connect Eternl";
   return "Set up Eternl";
@@ -102,6 +108,11 @@ function errorDetails(cause: unknown) {
   return { code, detail };
 }
 
+export function isWalletAccountChangeError(cause: unknown) {
+  const { code, detail } = errorDetails(cause);
+  return code === -4 || /account(?: has)? changed?/i.test(detail ?? "");
+}
+
 export function walletErrorMessage(
   cause: unknown,
   fallback = "Eternl could not complete that request.",
@@ -131,8 +142,8 @@ export function walletErrorMessage(
       : "Connection was not approved in Eternl. Open Eternl, select your Preprod account, approve this site, and try again.";
   }
 
-  if (code === -4 || normalized.includes("account change")) {
-    return "The Eternl account changed. Reconnect Baton to the account you want to use.";
+  if (isWalletAccountChangeError(cause)) {
+    return "The Eternl account changed. Baton stopped using the previous account. Reopen Eternl and try again.";
   }
 
   if (normalized.includes("network")) {

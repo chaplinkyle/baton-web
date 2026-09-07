@@ -322,6 +322,7 @@ export default function CreateVault() {
     if (wallet.connection) return shortHash(wallet.connection.address, 12);
     if (wallet.connectionActivity === "requesting") return "Waiting for your approval…";
     if (wallet.connectionActivity === "checking") return "Checking your wallet network…";
+    if (wallet.connectionActivity === "switching") return "Updating to your selected account…";
     if (wallet.connectionActivity === "restoring") return "Restoring your account…";
     if (wallet.availability === "detecting") return "Looking for Eternl…";
     return wallet.available ? "Ready to connect" : "Eternl not detected";
