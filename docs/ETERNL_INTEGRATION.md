@@ -25,6 +25,12 @@ only in response to a user action. The adapter uses CIP-30 to:
 No provider method exposes the seed phrase or private key to the site. A wallet
 signature request is shown and approved inside Eternl.
 
+The interface names each connection phase explicitly: waiting for the person in
+Eternl, then checking Cardano Preprod after approval. A slow network read must
+never look like an unresolved wallet approval. On small screens the wallet
+panel is a focus-contained sheet with an opaque background; on larger screens
+it remains an anchored popover.
+
 ### Embedded dApp-browser boundary
 
 Eternl's extension and mobile dApp browsers may render Baton inside an iframe.
@@ -177,6 +183,9 @@ returned a signature or transaction ID.
   transaction with unsafe collateral behavior.
 - Submission failed: do not call the pulse successful; re-query canonical state.
 - Account changed: invalidate the unsigned transaction and reconnect.
+- Transient provider timeout: retry one idempotent network-initialization read,
+  then show short guidance that confirms nothing changed. Signing and
+  submission are never retried automatically.
 - Disconnect during a wallet request: invalidate every in-flight connection or
   identity result. A late success, failure, or timeout must not reconnect the
   wallet, reopen an error panel, or change the user's explicit disconnected

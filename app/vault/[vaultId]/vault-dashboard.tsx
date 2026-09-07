@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
+import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import { EXPLORER_URL } from "@/lib/config";
 import { walletErrorMessage } from "@/lib/eternl";
 import {
@@ -114,7 +115,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       if (!isCurrent()) return;
       setState(null);
       setCompleted(null);
-      setError(cause instanceof Error ? cause.message : "Your confirmed plan could not be read from Cardano.");
+      setError(cardanoErrorMessage(cause, "Your confirmed plan could not be read from Cardano."));
     } finally {
       if (isCurrent()) setLoading(false);
     }
@@ -186,7 +187,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       setReview(nextReview);
       setReviewWalletAddress(connection.address);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "This action could not be prepared.");
+      setError(cardanoErrorMessage(cause, "This action could not be prepared."));
     } finally {
       setBusy(false);
     }

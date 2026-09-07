@@ -318,6 +318,15 @@ export default function CreateVault() {
     );
   }
 
+  function walletConnectionTitle() {
+    if (wallet.connection) return shortHash(wallet.connection.address, 12);
+    if (wallet.connectionActivity === "requesting") return "Waiting for your approval…";
+    if (wallet.connectionActivity === "checking") return "Checking Cardano Preprod…";
+    if (wallet.connectionActivity === "restoring") return "Restoring your account…";
+    if (wallet.availability === "detecting") return "Looking for Eternl…";
+    return wallet.available ? "Ready to connect" : "Eternl not detected";
+  }
+
   return (
     <div className="create-shell page-shell">
       <header className="page-title compact-title">
@@ -358,7 +367,7 @@ export default function CreateVault() {
               <div className="connection-card" data-create-field="wallet" tabIndex={-1}>
                 <div>
                   <span>YOUR ETERNL WALLET</span>
-                  <strong>{wallet.connection ? shortHash(wallet.connection.address, 12) : wallet.connectionActivity === "restoring" ? "Restoring your account…" : wallet.availability === "detecting" ? "Looking for Eternl…" : wallet.available ? "Ready to connect" : "Eternl not detected"}</strong>
+                  <strong>{walletConnectionTitle()}</strong>
                   <small>{wallet.connection ? "Connected for this browser session · confirm Preprod in Eternl" : "Your wallet approves every transaction and keeps your keys."}</small>
                 </div>
                 {!wallet.connection && <button type="button" className="button secondary" onClick={() => { clearStepIssue("wallet"); void wallet.connect(); }} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}

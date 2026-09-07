@@ -11,6 +11,7 @@ import {
   type TxSignBuilder,
   type UTxO,
 } from "@lucid-evolution/lucid";
+import { withCardanoReadRetry } from "./cardano-errors";
 import {
   applyVault,
   closeRedeemer,
@@ -170,7 +171,9 @@ export function decodeStateClock(datumCbor: string) {
 }
 
 export async function readOnlyLucid() {
-  return Lucid(new Koios(KOIOS_URL), CARDANO_NETWORK);
+  return withCardanoReadRetry(
+    () => Lucid(new Koios(KOIOS_URL), CARDANO_NETWORK),
+  );
 }
 
 function reproduceContract(manifest: VaultManifest) {

@@ -19,6 +19,7 @@ test("wallet actions describe every discovery and connection state consistently"
   assert.equal(walletConnectionActionLabel("idle", "available"), "Connect Eternl");
   assert.equal(walletConnectionActionLabel("requesting", "available"), "Approve in Eternl");
   assert.equal(walletConnectionActionLabel("restoring", "available"), "Restoring Eternl…");
+  assert.equal(walletConnectionActionLabel("checking", "available"), "Checking Preprod…");
 });
 
 test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () => {
@@ -48,6 +49,17 @@ test("wallet requests fail with an actionable timeout", async () => {
     walletErrorMessage(new WalletRequestTimeoutError("Eternl approval")),
     /did not respond/i,
   );
+});
+
+test("Cardano provider timeouts never expose runtime internals as wallet errors", () => {
+  const message = walletErrorMessage(new Error(
+    "TimeoutException: Operation timed out after '10s' at Module.timeoutExceptionFromDuration\n" +
+    "at http://localhost:3000/_next/static/chunks/node_modules_effect.js:1496:50",
+  ));
+
+  assert.match(message, /Cardano is taking longer than expected/i);
+  assert.match(message, /nothing changed/i);
+  assert.doesNotMatch(message, /TimeoutException|node_modules|https?:\/\//i);
 });
 
 test("an authorized wallet session refreshes its account without enable", async () => {

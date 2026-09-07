@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Buffer } from "buffer";
 import { useWallet } from "@/app/providers";
-import { walletErrorMessage } from "@/lib/eternl";
+import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import {
   parseManifest,
   storeManifest,
@@ -59,7 +59,18 @@ export default function PlansPage() {
   const refreshVersionRef = useRef(0);
   const waitingForWallet = wallet.connectionActivity !== "idle";
   const waitingForApproval = wallet.connectionActivity === "requesting";
+  const checkingPreprod = wallet.connectionActivity === "checking";
   const plansArePending = loading || waitingForWallet;
+  const walletProgressTitle = waitingForApproval
+    ? "Waiting for Eternl…"
+    : checkingPreprod
+      ? "Checking Cardano Preprod…"
+      : "Restoring your wallet…";
+  const walletProgressCopy = waitingForApproval
+    ? "Approve or decline the connection in Eternl. Baton will search only after you approve it."
+    : checkingPreprod
+      ? "Eternl is approved. Baton is preparing confirmed network data; nothing is being signed or submitted."
+      : "Baton is reconnecting to the account you already approved. No new approval is required.";
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -97,7 +108,7 @@ export default function PlansPage() {
         }
       } catch (cause) {
         if (!isCurrent()) return;
-        setError(walletErrorMessage(cause, "Wallet plan discovery failed."));
+        setError(cardanoErrorMessage(cause, "Baton could not read this wallet's plans. Reopen Eternl and try again."));
       }
     }
 
@@ -114,6 +125,13 @@ export default function PlansPage() {
       });
     }
 
+    if (merged.size === 0) {
+      if (!isCurrent()) return;
+      setPlans([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const lucid = connection?.lucid ?? await readOnlyLucid();
       if (!isCurrent()) return;
@@ -127,7 +145,7 @@ export default function PlansPage() {
           } catch (cause) {
             return {
               ...plan,
-              error: cause instanceof Error ? cause.message : "Plan status could not be read.",
+              error: cardanoErrorMessage(cause, "Plan status could not be read from Cardano."),
             };
           }
         }),
@@ -138,7 +156,7 @@ export default function PlansPage() {
     } catch (cause) {
       if (!isCurrent()) return;
       setPlans([]);
-      setError(cause instanceof Error ? cause.message : "Baton could not read plans from Cardano.");
+      setError(cardanoErrorMessage(cause, "Baton could not read plans from Cardano."));
     } finally {
       if (isCurrent()) setLoading(false);
     }
@@ -164,7 +182,7 @@ export default function PlansPage() {
       setNotice("Plan verified on Cardano and added to this device.");
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "That plan could not be added.");
+      setError(cardanoErrorMessage(cause, "That plan could not be added."));
     } finally {
       setAdding(false);
     }
@@ -204,6 +222,8 @@ export default function PlansPage() {
             ? shortHash(wallet.connection.address, 12)
             : waitingForApproval
               ? "Waiting for your approval"
+              : checkingPreprod
+                ? "Checking Cardano Preprod"
               : wallet.connectionActivity === "restoring"
                 ? "Restoring your account"
                 : wallet.availability === "detecting"
@@ -215,6 +235,8 @@ export default function PlansPage() {
               : `${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
             : waitingForApproval
               ? "Approve Baton in Eternl; no transaction is being submitted"
+              : checkingPreprod
+                ? "Eternl is approved; nothing is being signed or submitted"
               : wallet.connectionActivity === "restoring"
                 ? "Using the wallet access you already approved"
                 : "Saved plans on this device remain visible"}</small>
@@ -234,7 +256,7 @@ export default function PlansPage() {
       </section>
 
       <section className="plans-list">
-        {waitingForWallet && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{waitingForApproval ? "Waiting for Eternl…" : "Restoring your wallet…"}</h2><p>{waitingForApproval ? "Approve or decline the connection in Eternl. Baton will search only after you approve it." : "Baton is reconnecting to the account you already approved. No new approval is required."}</p></div>}
+        {waitingForWallet && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{walletProgressTitle}</h2><p>{walletProgressCopy}</p></div>}
         {!waitingForWallet && loading && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
         {!waitingForWallet && !loading && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID.</p></div>}
         {!waitingForWallet && !loading && plans.map((plan) => {

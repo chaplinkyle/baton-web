@@ -11,14 +11,17 @@ export function WalletButton() {
   const clearWalletError = wallet.clearError;
   const [open, setOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [mobileSheet, setMobileSheet] = useState(false);
   const slotRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const copyResetTimer = useRef<number | null>(null);
   // A request started from Create or My Plans should be just as legible as one
   // started here. Keep the approval guidance visible until Eternl resolves the
   // request so the disabled button never looks like an unexplained spinner.
-  const approvalRequested = wallet.connectionActivity === "requesting";
-  const panelOpen = open || approvalRequested || Boolean(wallet.error);
+  const connectionPending = wallet.connectionActivity !== "idle";
+  const panelOpen = open || connectionPending || Boolean(wallet.error);
 
   const closePanel = useCallback((restoreFocus = false) => {
     setOpen(false);
@@ -27,6 +30,30 @@ export function WalletButton() {
       window.requestAnimationFrame(() => buttonRef.current?.focus());
     }
   }, [clearWalletError]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 620px)");
+    const sync = () => setMobileSheet(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!panelOpen || !mobileSheet) return;
+    const background = Array.from(document.querySelectorAll<HTMLElement>(
+      "main, .site-footer, .site-header .brand, .site-header nav",
+    ));
+    const previous = background.map((element) => element.inert);
+    background.forEach((element) => { element.inert = true; });
+    const focusFrame = window.requestAnimationFrame(() => {
+      (closeButtonRef.current ?? panelRef.current)?.focus();
+    });
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      background.forEach((element, index) => { element.inert = previous[index]; });
+    };
+  }, [mobileSheet, panelOpen]);
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -91,6 +118,7 @@ export function WalletButton() {
         className={`wallet-button ${wallet.connection ? "connected" : ""}`}
         onClick={handlePrimaryClick}
         disabled={wallet.connecting || wallet.availability === "detecting"}
+        tabIndex={mobileSheet && panelOpen ? -1 : undefined}
         aria-expanded={panelOpen}
         aria-controls="wallet-panel"
       >
@@ -106,8 +134,33 @@ export function WalletButton() {
       </button>
 
       {panelOpen && (
-        <section className="wallet-panel" id="wallet-panel" aria-label="Eternl wallet">
-          {wallet.connection ? (
+        <>
+          <div
+            className="wallet-backdrop"
+            aria-hidden="true"
+            onClick={() => closePanel(false)}
+          />
+          <section
+            ref={panelRef}
+            className="wallet-panel"
+            id="wallet-panel"
+            role={mobileSheet ? "dialog" : undefined}
+            aria-modal={mobileSheet || undefined}
+            aria-label="Eternl wallet"
+            tabIndex={-1}
+          >
+            {!connectionPending && (
+              <button
+                ref={closeButtonRef}
+                type="button"
+                className="wallet-panel-close"
+                aria-label="Close wallet details"
+                onClick={() => closePanel(true)}
+              >
+                ×
+              </button>
+            )}
+            {wallet.connection ? (
             <>
               <div className="wallet-panel-head">
                 <div>
@@ -154,6 +207,22 @@ export function WalletButton() {
               </p>
               <div className="wallet-pending-note" role="status">
                 Waiting for your decision in Eternl
+              </div>
+            </>
+          ) : wallet.connectionActivity === "checking" ? (
+            <>
+              <div className="wallet-panel-head">
+                <div>
+                  <span>Eternl approved</span>
+                  <strong>Checking Cardano Preprod</strong>
+                </div>
+              </div>
+              <p>
+                Baton is preparing confirmed network data for this account.
+                Nothing is being signed or submitted.
+              </p>
+              <div className="wallet-pending-note" role="status">
+                Finishing the secure connection
               </div>
             </>
           ) : wallet.connectionActivity === "restoring" ? (
@@ -248,8 +317,9 @@ export function WalletButton() {
                 </button>
               </div>
             </>
-          ) : null}
-        </section>
+            ) : null}
+          </section>
+        </>
       )}
     </div>
   );

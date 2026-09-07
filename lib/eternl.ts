@@ -1,6 +1,11 @@
 import type { LucidEvolution, WalletApi } from "@lucid-evolution/lucid";
 import { Buffer } from "buffer";
 import {
+  cardanoErrorMessage,
+  isRetryableCardanoReadError,
+  withCardanoReadRetry,
+} from "./cardano-errors";
+import {
   CARDANO_NETWORK,
   EXPECTED_NETWORK_ID,
   KOIOS_URL,
@@ -10,7 +15,7 @@ const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
 
 export type WalletAvailability = "detecting" | "available" | "missing";
-export type WalletConnectionActivity = "idle" | "restoring" | "requesting";
+export type WalletConnectionActivity = "idle" | "restoring" | "requesting" | "checking";
 
 type EternlProvider = Window["cardano"][string];
 type Cip30Error = { code?: unknown; info?: unknown; message?: unknown };
@@ -38,6 +43,7 @@ export function walletConnectionActionLabel(
 ) {
   if (activity === "requesting") return "Approve in Eternl";
   if (activity === "restoring") return "Restoring Eternl…";
+  if (activity === "checking") return "Checking Preprod…";
   if (availability === "detecting") return "Finding Eternl…";
   if (availability === "available") return "Connect Eternl";
   return "Set up Eternl";
@@ -89,6 +95,10 @@ export function walletErrorMessage(
 
   const { code, detail } = errorDetails(cause);
   const normalized = (detail ?? "").toLowerCase();
+
+  if (isRetryableCardanoReadError(cause)) {
+    return cardanoErrorMessage(cause, fallback);
+  }
 
   if (
     code === -3 ||
@@ -187,7 +197,7 @@ export async function refreshEternlConnection(
   };
 }
 
-export async function connectEternl(): Promise<EternlConnection> {
+export async function connectEternl(onApproved?: () => void): Promise<EternlConnection> {
   const browserGlobals = globalThis as typeof globalThis & {
     Buffer?: typeof Buffer;
   };
@@ -205,11 +215,14 @@ export async function connectEternl(): Promise<EternlConnection> {
     "Eternl approval",
     APPROVAL_TIMEOUT_MS,
   );
+  onApproved?.();
 
   const { Koios, Lucid } = await import(
     "@lucid-evolution/lucid"
   );
-  const lucid = await Lucid(new Koios(KOIOS_URL), CARDANO_NETWORK);
+  const lucid = await withCardanoReadRetry(
+    () => Lucid(new Koios(KOIOS_URL), CARDANO_NETWORK),
+  );
   lucid.selectWallet.fromAPI(api);
   const identity = await readWalletIdentity(api, lucid);
 

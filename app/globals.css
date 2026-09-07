@@ -59,8 +59,11 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-glyph { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; color: var(--signal); background: var(--signal-soft); font-size: .68rem; }
 .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #7fc6ad; box-shadow: 0 0 0 3px rgba(127, 198, 173, .12); }
 .wallet-chevron { margin-left: auto; color: var(--muted); font-size: .85rem; line-height: 1; }
-.wallet-panel { position: fixed; top: 78px; right: max(var(--page-gutter), calc((100vw - var(--content-max)) / 2)); width: min(360px, calc(100vw - 2 * var(--page-gutter))); max-height: calc(100dvh - 94px); overflow-y: auto; overscroll-behavior: contain; padding: 19px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); background: #1d1f2d; box-shadow: 0 20px 55px rgba(0, 0, 0, .42); }
-.wallet-panel-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.wallet-backdrop { display: none; }
+.wallet-panel { position: fixed; z-index: 2; top: 78px; right: max(var(--page-gutter), calc((100vw - var(--content-max)) / 2)); width: min(360px, calc(100vw - 2 * var(--page-gutter))); max-height: calc(100dvh - 94px); overflow-y: auto; overscroll-behavior: contain; padding: 19px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); background: #1d1f2d; box-shadow: 0 20px 55px rgba(0, 0, 0, .42); }
+.wallet-panel-close { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid transparent; border-radius: 7px; color: var(--muted); background: transparent; font-size: 1.25rem; line-height: 1; cursor: pointer; }
+.wallet-panel-close:hover { border-color: var(--line); color: var(--ink); background: var(--panel-2); }
+.wallet-panel-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding-right: 34px; }
 .wallet-panel-head > div { display: grid; min-width: 0; }
 .wallet-panel-head span { color: var(--muted); font-size: .72rem; }
 .wallet-panel-head strong { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; font-size: .9rem; }
@@ -445,6 +448,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 }
 
 @media (max-width: 620px) {
+  body:has(.wallet-panel) { overflow: hidden; }
   .page-shell { width: calc(100% - 2 * var(--page-gutter)); }
   .site-header-inner { width: calc(100% - 2 * var(--page-gutter)); min-height: 66px; }
   .brand { font-size: .88rem; }
@@ -580,6 +584,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .role-table > div:not(.section-intro) { padding: 20px 0; }
   .role-table strong { margin-top: 16px; }
   .site-footer-inner { gap: 16px; }
+  .wallet-backdrop { position: fixed; z-index: 1; top: 107px; right: 0; left: 0; display: block; height: calc(100dvh - 107px); background: var(--base); }
   .wallet-panel { right: var(--page-gutter); left: var(--page-gutter); width: auto; }
   .tx-review-head { gap: 12px; flex-wrap: wrap; }
 }

@@ -110,7 +110,11 @@ export function Providers({ children }: { children: ReactNode }) {
     setAvailability("available");
     if (!silent) setIssue(null);
     try {
-      const nextConnection = await connectEternl();
+      const nextConnection = await connectEternl(() => {
+        if (operationVersionRef.current === operationVersion) {
+          setConnectionActivity("checking");
+        }
+      });
       if (operationVersionRef.current !== operationVersion) return;
       connectedRef.current = true;
       setConnection(nextConnection);

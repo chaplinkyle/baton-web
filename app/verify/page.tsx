@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import { CARDANO_NETWORK } from "@/lib/config";
 import { parseManifest, type VaultManifest } from "@/lib/manifest";
 import { formatUtc, shortHash } from "@/lib/product";
@@ -25,7 +26,7 @@ export default function VerifyPage() {
       const confirmed = await readVaultLifecycle(await readOnlyLucid(), parsed);
       setManifest(parsed); setLifecycle(confirmed);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "This plan could not be checked.");
+      setError(cardanoErrorMessage(cause, "This plan could not be checked."));
     } finally { setBusy(false); }
   }
 
