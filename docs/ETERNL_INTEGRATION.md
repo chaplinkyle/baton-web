@@ -25,6 +25,20 @@ only in response to a user action. The adapter uses CIP-30 to:
 No provider method exposes the seed phrase or private key to the site. A wallet
 signature request is shown and approved inside Eternl.
 
+### Embedded dApp-browser boundary
+
+Eternl's extension and mobile dApp browsers may render Baton inside an iframe.
+Every Baton route therefore allows framing only from the documented Eternl
+contexts: `eternl.io`, its subdomains, the Eternl browser extension, and its
+Ionic or Capacitor mobile application shells. The policy does not use a general
+web wildcard, so ordinary websites cannot frame the interface.
+
+`X-Frame-Options` is deliberately omitted because its legacy `DENY` and
+`SAMEORIGIN` modes cannot express this origin list and would override the dApp
+browser integration. The Content Security Policy remains the authoritative
+frame restriction, with cross-origin isolation and resource-policy headers
+matching Eternl's published integration requirements.
+
 ## Why `signData` is not the pulse
 
 Eternl can sign an off-chain message, but the Cardano validator cannot discover

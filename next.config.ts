@@ -1,5 +1,17 @@
 import type { NextConfig } from "next";
 
+const frameAncestors = [
+  "'self'",
+  "https://eternl.io",
+  "https://*.eternl.io",
+  "ionic:",
+  "capacitor:",
+  "chrome-extension:",
+  ...(process.env.NODE_ENV === "development"
+    ? ["http://localhost:*", "https://localhost:*"]
+    : []),
+].join(" ");
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
@@ -9,7 +21,7 @@ const contentSecurityPolicy = [
   "connect-src 'self' https://preprod.koios.rest https://preview.koios.rest https://api.koios.rest",
   "object-src 'none'",
   "base-uri 'self'",
-  "frame-ancestors 'none'",
+  `frame-ancestors ${frameAncestors}`,
   "form-action 'self'",
 ].join("; ");
 
@@ -18,7 +30,9 @@ export const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
 ];
 
 const nextConfig: NextConfig = {
