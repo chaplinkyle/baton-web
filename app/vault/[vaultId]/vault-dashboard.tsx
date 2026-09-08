@@ -276,17 +276,18 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   }
 
   async function signAndSubmit() {
-    if (!activeReview || !wallet.connection || !manifest) return;
+    const connection = wallet.connection;
+    if (!activeReview || !connection || !manifest) return;
     const reviewed = activeReview;
     setBusy(true);
     setError(null);
     try {
       const { signAndSubmitAction } = await import("@/lib/vault-state");
-      const txHash = await signAndSubmitAction(reviewed, wallet.connection);
+      const txHash = await signAndSubmitAction(reviewed, connection);
       setSubmitted(txHash);
       setReview(null);
       setReviewConnection(null);
-      const confirmed = await wallet.connection.lucid.awaitTx(txHash);
+      const confirmed = await connection.lucid.awaitTx(txHash);
       if (!confirmed) throw new Error("Transaction was submitted but confirmation was not observed.");
       setSubmissionConfirmed(true);
       await refresh(manifest);

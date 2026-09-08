@@ -43,6 +43,10 @@ import {
 
 type ReleaseMode = "fixed" | "bearer";
 type WalletAsset = { unit: string; quantity: bigint };
+type WalletAssetResult = {
+  connection: EternlConnection;
+  assets: WalletAsset[];
+};
 
 export default function CreateVault() {
   const wallet = useWallet();
@@ -77,7 +81,8 @@ export default function CreateVault() {
   const [releaseMode, setReleaseMode] = useState<ReleaseMode>("fixed");
   const [destination, setDestination] = useState("");
   const [commitment, setCommitment] = useState("");
-  const [walletAssets, setWalletAssets] = useState<WalletAsset[]>([]);
+  const [walletAssetResult, setWalletAssetResult] =
+    useState<WalletAssetResult | null>(null);
   const [protectedTokenUnits, setProtectedTokenUnits] = useState<string[]>([]);
   const [review, setReview] = useState<CreationReview | null>(null);
   const [reviewKey, setReviewKey] = useState("");
@@ -123,10 +128,9 @@ export default function CreateVault() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!wallet.connection) {
-      return;
-    }
-    wallet.connection.lucid.wallet().getUtxos().then((utxos) => {
+    const connection = wallet.connection;
+    if (!connection) return;
+    connection.lucid.wallet().getUtxos().then((utxos) => {
       const totals = new Map<string, bigint>();
       for (const utxo of utxos) {
         for (const [unit, quantity] of Object.entries(utxo.assets)) {
@@ -136,15 +140,25 @@ export default function CreateVault() {
         }
       }
       if (!cancelled) {
-        setWalletAssets(
-          [...totals].map(([unit, quantity]) => ({ unit, quantity })),
-        );
+        setWalletAssetResult({
+          connection,
+          assets: [...totals].map(([unit, quantity]) => ({ unit, quantity })),
+        });
       }
     }).catch(() => {
-      if (!cancelled) setWalletAssets([]);
+      if (!cancelled) setWalletAssetResult({ connection, assets: [] });
     });
     return () => { cancelled = true; };
   }, [wallet.connection]);
+
+  const walletAssets = useMemo(
+    () => reviewForWalletSession(
+      walletAssetResult?.assets ?? null,
+      walletAssetResult?.connection ?? null,
+      wallet.connection,
+    ) ?? [],
+    [wallet.connection, walletAssetResult],
+  );
 
   const periodMs = periodDays * DAY_MS;
   const expectedRelease = releaseAt(clock, periodMs, misses);
@@ -281,13 +295,14 @@ export default function CreateVault() {
   }
 
   async function submitTransaction() {
-    if (!activeReview || !wallet.connection) return;
+    const connection = wallet.connection;
+    if (!activeReview || !connection) return;
     const reviewed = activeReview;
     setBusy(true);
     setError(null);
     try {
       const { signAndSubmitCreation } = await import("@/lib/transactions");
-      const txHash = await signAndSubmitCreation(reviewed, wallet.connection);
+      const txHash = await signAndSubmitCreation(reviewed, connection);
       setSubmittedHash(txHash);
       invalidateReview();
       const reviewedMode = reviewed.releaseRule.kind;
@@ -324,7 +339,7 @@ export default function CreateVault() {
       // closes the tab while confirmation is pending, the plan can still be
       // reopened and verified from Cardano.
       storeManifest(created);
-      const confirmed = await wallet.connection.lucid.awaitTx(txHash);
+      const confirmed = await connection.lucid.awaitTx(txHash);
       if (!confirmed) throw new Error("Transaction was submitted but confirmation was not observed.");
       setCreatedManifest(created);
     } catch (cause) {

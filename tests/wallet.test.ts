@@ -431,10 +431,11 @@ test("account changes are detected from CIP-30 codes and provider wording", () =
   assert.match(message, /Forced DApp Account/i);
 });
 
-test("unsigned reviews belong to one exact wallet session", () => {
+test("wallet-derived reviews and asset lists belong to one exact session", () => {
   const firstSession = { address: OWNER_ADDRESS } as EternlConnection;
   const secondSession = { address: OWNER_ADDRESS } as EternlConnection;
   const review = { transactionHash: "prepared" };
+  const assets = [{ unit: "policy.asset", quantity: 1n }];
 
   assert.equal(
     reviewForWalletSession(review, firstSession, firstSession),
@@ -442,6 +443,11 @@ test("unsigned reviews belong to one exact wallet session", () => {
   );
   assert.equal(reviewForWalletSession(review, firstSession, secondSession), null);
   assert.equal(reviewForWalletSession(review, firstSession, null), null);
+  assert.equal(
+    reviewForWalletSession(assets, firstSession, firstSession),
+    assets,
+  );
+  assert.equal(reviewForWalletSession(assets, firstSession, secondSession), null);
 });
 
 test("provider network errors retain their useful detail", () => {

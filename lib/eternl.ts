@@ -87,10 +87,11 @@ export function walletIdentityKey(
 }
 
 /**
- * Keep an unsigned transaction bound to the exact authorized wallet session
- * that constructed it. Address equality is intentionally insufficient: a user
- * can switch away and later return to the same account after the transaction's
- * inputs or validity interval have become stale.
+ * Keep wallet-derived state bound to the exact authorized wallet session that
+ * produced it. This covers unsigned transactions as well as account assets.
+ * Address equality is intentionally insufficient: a user can switch away and
+ * later return to the same account after inputs, balances, or validity windows
+ * have become stale.
  */
 export function reviewForWalletSession<T>(
   review: T | null,
