@@ -44,6 +44,17 @@ export function WalletButton() {
   const foregroundConnectionPending =
     connectionPending && wallet.connectionActivity !== "restoring";
   const panelOpen = open || foregroundConnectionPending || Boolean(wallet.error);
+  const panelFocusPhase = wallet.revalidating
+    ? "revalidating"
+    : wallet.connection
+      ? "connected"
+      : wallet.connectionActivity !== "idle"
+        ? wallet.connectionActivity
+        : wallet.error
+          ? "error"
+          : wallet.available
+            ? "ready"
+            : "setup";
   const triggerBlocked =
     (wallet.connecting && wallet.connectionActivity !== "restoring") ||
     wallet.availability === "detecting";
@@ -100,11 +111,24 @@ export function WalletButton() {
   useEffect(() => {
     if (!panelOpen) return;
     const focusFrame = window.requestAnimationFrame(() => {
-      (closeButtonRef.current ?? panelRef.current)?.focus();
+      const panel = panelRef.current;
+      if (!panel) return;
+      const active = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      if (active && panel.contains(active) && active.getClientRects().length > 0) {
+        return;
+      }
+      const firstAction = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).find((element) => element.getClientRects().length > 0);
+      (closeButtonRef.current ?? firstAction ?? panel).focus();
     });
-    if (!mobileSheet) {
-      return () => window.cancelAnimationFrame(focusFrame);
-    }
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [panelFocusPhase, panelOpen]);
+
+  useEffect(() => {
+    if (!panelOpen || !mobileSheet) return;
     const background = Array.from(document.querySelectorAll<HTMLElement>(
       "main, .site-footer, .site-header nav",
     ));
@@ -116,7 +140,6 @@ export function WalletButton() {
     brand?.setAttribute("tabindex", "-1");
     brand?.setAttribute("aria-hidden", "true");
     return () => {
-      window.cancelAnimationFrame(focusFrame);
       background.forEach((element, index) => { element.inert = previous[index]; });
       if (brand) {
         if (previousBrandTabIndex === null) brand.removeAttribute("tabindex");

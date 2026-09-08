@@ -65,7 +65,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-chevron { display: block; flex: 0 0 auto; width: 14px; height: 14px; margin-left: auto; color: var(--muted); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .wallet-backdrop { display: none; }
 .wallet-panel { position: absolute; z-index: 2; top: calc(100% + 10px); right: 0; width: min(360px, 100%); max-height: calc(100dvh - 100% - 26px); overflow-y: auto; overscroll-behavior: contain; padding: 19px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); background: #1d1f2d; box-shadow: 0 20px 55px rgba(0, 0, 0, .42); }
-.wallet-panel:focus { outline: none; }
+.wallet-panel:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
 .wallet-panel-close { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid transparent; border-radius: 7px; color: var(--muted); background: transparent; font-size: 1.25rem; line-height: 1; cursor: pointer; }
 .wallet-panel-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
 .wallet-panel-close:hover { border-color: var(--line); color: var(--ink); background: var(--panel-2); }

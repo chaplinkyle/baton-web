@@ -132,17 +132,22 @@ test("the mobile wallet sheet keeps the brand visible but non-interactive", () =
   assert.match(css, /\.brand\[aria-hidden="true"\]\s*\{\s*pointer-events:\s*none/);
 });
 
-test("the wallet dialog receives focus on desktop and mobile", () => {
-  const panelFocus = walletSource.indexOf(
-    "(closeButtonRef.current ?? panelRef.current)?.focus()",
+test("the wallet dialog restores visible focus across asynchronous phases", () => {
+  assert.match(walletSource, /const panelFocusPhase = wallet\.revalidating/);
+  assert.match(
+    walletSource,
+    /panel\.querySelectorAll<HTMLElement>\(FOCUSABLE_SELECTOR\)/,
   );
-  const mobileOnlyBranch = walletSource.indexOf("if (!mobileSheet)", panelFocus);
-
-  assert.notEqual(panelFocus, -1, "wallet panel should receive opening focus");
-  assert.ok(
-    mobileOnlyBranch > panelFocus,
-    "opening focus should happen before mobile-only background handling",
+  assert.match(
+    walletSource,
+    /\(closeButtonRef\.current \?\? firstAction \?\? panel\)\.focus\(\)/,
   );
+  assert.match(walletSource, /\[panelFocusPhase, panelOpen\]/);
+  assert.match(
+    css,
+    /\.wallet-panel:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--signal\)/,
+  );
+  assert.doesNotMatch(css, /\.wallet-panel:focus\s*\{[^}]*outline:\s*none/);
 });
 
 test("authorized wallet restoration stays quiet without trapping the user", () => {
