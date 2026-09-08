@@ -59,6 +59,7 @@ function setReconnectSuppressed(suppressed: boolean) {
 type WalletContextValue = {
   connection: EternlConnection | null;
   connecting: boolean;
+  revalidating: boolean;
   connectionActivity: WalletConnectionActivity;
   error: string | null;
   available: boolean;
@@ -78,6 +79,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const [issue, setIssue] = useState<WalletIssue | null>(null);
   const [availability, setAvailability] =
     useState<WalletAvailability>("detecting");
+  const [revalidating, setRevalidating] = useState(false);
   const connectingRef = useRef(false);
   const connectedRef = useRef(false);
   const operationVersionRef = useRef(0);
@@ -163,6 +165,7 @@ export function Providers({ children }: { children: ReactNode }) {
     if (!isEternlAvailable()) {
       operationVersionRef.current += 1;
       connectingRef.current = false;
+      setRevalidating(false);
       setAvailability("missing");
       connectedRef.current = false;
       setConnection(null);
@@ -177,6 +180,7 @@ export function Providers({ children }: { children: ReactNode }) {
     const operationVersion = ++operationVersionRef.current;
     let accountChanged = false;
     connectingRef.current = true;
+    setRevalidating(true);
     setAvailability("available");
     try {
       const nextConnection = await refreshEternlConnection(current);
@@ -216,6 +220,7 @@ export function Providers({ children }: { children: ReactNode }) {
     } finally {
       if (operationVersionRef.current === operationVersion) {
         connectingRef.current = false;
+        setRevalidating(false);
       }
     }
     if (accountChanged && operationVersionRef.current === operationVersion) {
@@ -226,6 +231,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const disconnect = useCallback(() => {
     operationVersionRef.current += 1;
     connectingRef.current = false;
+    setRevalidating(false);
     reconnectSuppressedRef.current = true;
     connectedRef.current = false;
     setConnectionActivity("idle");
@@ -298,7 +304,8 @@ export function Providers({ children }: { children: ReactNode }) {
   const value = useMemo<WalletContextValue>(
     () => ({
       connection,
-      connecting: connectionActivity !== "idle",
+      connecting: connectionActivity !== "idle" || revalidating,
+      revalidating,
       connectionActivity,
       error: issue?.message ?? null,
       available: availability === "available",
@@ -319,6 +326,7 @@ export function Providers({ children }: { children: ReactNode }) {
       connectionActivity,
       disconnect,
       issue,
+      revalidating,
     ],
   );
 

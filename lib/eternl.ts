@@ -53,6 +53,13 @@ export function isExactWalletNetwork(
     : connection.networkMagic === EXPECTED_NETWORK_MAGIC;
 }
 
+export function isWalletSessionReady(
+  connection: EternlConnection | null,
+  revalidating: boolean,
+) {
+  return connection !== null && !revalidating;
+}
+
 /**
  * Keep an unsigned transaction bound to the exact authorized wallet session
  * that constructed it. Address equality is intentionally insufficient: a user

@@ -6,6 +6,7 @@ import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import { EXPLORER_URL } from "@/lib/config";
 import {
   type EternlConnection,
+  isWalletSessionReady,
   reviewForWalletSession,
   walletErrorMessage,
 } from "@/lib/eternl";
@@ -61,11 +62,13 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const [clock, setClock] = useState(() => Date.now());
   const [walletRoleResult, setWalletRoleResult] = useState<WalletRoleResult | null>(null);
   const refreshVersionRef = useRef(0);
-  const activeReview = reviewForWalletSession(
-    review,
-    reviewConnection,
+  const walletReady = isWalletSessionReady(
     wallet.connection,
+    wallet.revalidating,
   );
+  const activeReview = walletReady
+    ? reviewForWalletSession(review, reviewConnection, wallet.connection)
+    : null;
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -75,7 +78,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   useEffect(() => {
     let cancelled = false;
     const connection = wallet.connection;
-    if (!manifest || !connection) return;
+    if (!manifest || !connection || wallet.revalidating) return;
     const key = `${manifest.creationTx}:${connection.address}`;
 
     void (async () => {
@@ -101,7 +104,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     })();
 
     return () => { cancelled = true; };
-  }, [manifest, wallet.connection]);
+  }, [manifest, wallet.connection, wallet.revalidating]);
 
   const refresh = useCallback(async (knownManifest: VaultManifest) => {
     const refreshVersion = ++refreshVersionRef.current;
@@ -172,7 +175,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
 
   async function prepare(action: "pulse" | "close" | "release") {
     const connection = wallet.connection;
-    if (!connection || !manifest || !state) {
+    if (!walletReady || !connection || !manifest || !state) {
       setError("Connect the Eternl account needed for this action.");
       return;
     }
@@ -282,14 +285,16 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     ? walletRoleResult
     : null;
   const walletRoles = currentWalletRoleResult?.roles ?? [];
-  const checkingWalletRoles = Boolean(walletRoleKey && !currentWalletRoleResult);
+  const checkingWalletRoles = Boolean(
+    wallet.revalidating || (walletRoleKey && !currentWalletRoleResult),
+  );
   const walletRoleError = currentWalletRoleResult?.error ?? null;
   const actions = manifest
     ? availablePlanActions(
         status,
         manifest.releaseMode,
         walletRoles,
-        Boolean(wallet.connection),
+        walletReady,
       )
     : [];
   const canPulse = actions.includes("pulse");
@@ -337,13 +342,13 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
               <strong>Connect the wallet for this plan</strong>
               <p>Baton will confirm whether this account owns the plan, checks it in, or holds its recovery token. Connecting does not submit a transaction.</p>
               <button className="connect-inline" onClick={wallet.connect} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>
+            </div> : checkingWalletRoles ? <div className="action-guidance" role="status">
+              <strong>{wallet.revalidating ? "Confirming this Eternl account" : "Checking this Eternl account"}</strong>
+              <p>{wallet.revalidating ? "Wallet actions are paused until Baton confirms the selected Preprod account." : "Baton is confirming what this wallet can do without submitting a transaction."}</p>
             </div> : status === "claimable" && manifest.releaseMode === "fixed" ? <>
               <div className="action-role">Fixed receiving address</div>
               <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Complete the handoff<span>The complete protected value can only go to the chosen address</span></button>
-            </> : checkingWalletRoles ? <div className="action-guidance" role="status">
-              <strong>Checking this Eternl account</strong>
-              <p>Baton is confirming what this wallet can do without submitting a transaction.</p>
-            </div> : walletRoleError ? <div className="action-guidance action-guidance-error" role="alert">
+            </> : walletRoleError ? <div className="action-guidance action-guidance-error" role="alert">
               <strong>Wallet role could not be confirmed</strong>
               <p>{walletRoleError}</p>
             </div> : <>

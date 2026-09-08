@@ -5,6 +5,7 @@ import {
   type EternlConnection,
   isExactWalletNetwork,
   isWalletAccountChangeError,
+  isWalletSessionReady,
   refreshEternlConnection,
   reviewForWalletSession,
   WalletRequestTimeoutError,
@@ -171,6 +172,13 @@ test("a CIP-142 wallet confirms Preprod network magic", async () => {
 
 test("a testnet-only connection is not presented as exact Preprod proof", () => {
   assert.equal(isExactWalletNetwork({ networkId: 0, networkMagic: null }), false);
+});
+
+test("a wallet session cannot authorize actions while it is being revalidated", () => {
+  const connection = { address: OWNER_ADDRESS } as EternlConnection;
+  assert.equal(isWalletSessionReady(connection, false), true);
+  assert.equal(isWalletSessionReady(connection, true), false);
+  assert.equal(isWalletSessionReady(null, false), false);
 });
 
 test("connection refusal uses connection-specific guidance", () => {

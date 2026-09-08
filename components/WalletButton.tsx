@@ -122,9 +122,11 @@ export function WalletButton() {
     window.location.assign(cardanoBrowseUri(window.location.href));
   }
 
-  const label = wallet.connection
-    ? shortHash(wallet.connection.address, 7)
-    : wallet.connectionActionLabel;
+  const label = wallet.revalidating
+    ? "Checking account…"
+    : wallet.connection
+      ? shortHash(wallet.connection.address, 7)
+      : wallet.connectionActionLabel;
   const exactNetworkConfirmed =
     wallet.connection ? isExactWalletNetwork(wallet.connection) : false;
 
@@ -148,6 +150,7 @@ export function WalletButton() {
         className={`wallet-button ${wallet.connection ? "connected" : ""}`}
         onClick={handlePrimaryClick}
         disabled={wallet.connecting || wallet.availability === "detecting"}
+        aria-busy={wallet.revalidating || undefined}
         tabIndex={mobileSheet && panelOpen ? -1 : undefined}
         aria-expanded={panelOpen}
         aria-controls="wallet-panel"
@@ -190,7 +193,24 @@ export function WalletButton() {
                 ×
               </button>
             )}
-            {wallet.connection ? (
+            {wallet.revalidating ? (
+            <>
+              <div className="wallet-panel-head">
+                <div>
+                  <span>Confirming Eternl</span>
+                  <strong>Checking the selected account</strong>
+                </div>
+              </div>
+              <p>
+                Baton is confirming that this is still the same Preprod
+                account. Wallet actions remain unavailable until the check is
+                complete.
+              </p>
+              <div className="wallet-pending-note" role="status">
+                Revalidating your wallet session
+              </div>
+            </>
+          ) : wallet.connection ? (
             <>
               <div className="wallet-panel-head">
                 <div>

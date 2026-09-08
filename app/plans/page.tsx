@@ -12,6 +12,7 @@ import {
   type VaultManifest,
 } from "@/lib/manifest";
 import type { PlanRole } from "@/lib/plan-discovery";
+import { isWalletSessionReady } from "@/lib/eternl";
 import {
   formatAda,
   formatUtc,
@@ -63,10 +64,16 @@ export default function PlansPage() {
   const [adding, setAdding] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const refreshVersionRef = useRef(0);
-  const waitingForWallet = wallet.connectionActivity !== "idle";
+  const walletReady = isWalletSessionReady(
+    wallet.connection,
+    wallet.revalidating,
+  );
+  const waitingForWallet =
+    wallet.connectionActivity !== "idle" || wallet.revalidating;
   const waitingForApproval = wallet.connectionActivity === "requesting";
   const checkingPreprod = wallet.connectionActivity === "checking";
   const switchingAccount = wallet.connectionActivity === "switching";
+  const revalidatingAccount = wallet.revalidating;
   const plansArePending = loading || waitingForWallet;
   const walletProgressTitle = waitingForApproval
     ? "Waiting for Eternl…"
@@ -74,14 +81,18 @@ export default function PlansPage() {
       ? "Checking your wallet network…"
       : switchingAccount
         ? "Updating your Eternl account…"
-        : "Restoring your wallet…";
+        : revalidatingAccount
+          ? "Confirming your Eternl account…"
+          : "Restoring your wallet…";
   const walletProgressCopy = waitingForApproval
     ? "Approve or decline the connection in Eternl. Baton will search only after you approve it."
     : checkingPreprod
       ? "Eternl is approved. Baton is checking the network and preparing confirmed Cardano data; nothing is being signed or submitted."
       : switchingAccount
         ? "Baton stopped using the previous account and is reading the one you selected. Nothing is being signed or submitted."
-        : "Baton is reconnecting to the account you already approved. No new approval is required.";
+        : revalidatingAccount
+          ? "Baton is confirming that this is still the selected Preprod account. Plans and wallet actions stay hidden until the check is complete."
+          : "Baton is reconnecting to the account you already approved. No new approval is required.";
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -90,7 +101,7 @@ export default function PlansPage() {
 
   const refresh = useCallback(async () => {
     const refreshVersion = ++refreshVersionRef.current;
-    const connection = wallet.connection;
+    const connection = walletReady ? wallet.connection : null;
     const isCurrent = () => refreshVersionRef.current === refreshVersion;
     const browserGlobals = globalThis as typeof globalThis & { Buffer?: typeof Buffer };
     browserGlobals.Buffer ??= Buffer;
@@ -171,7 +182,7 @@ export default function PlansPage() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [wallet.connection]);
+  }, [wallet.connection, walletReady]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
@@ -218,8 +229,8 @@ export default function PlansPage() {
       <header className="page-title plans-title">
         <div>
           <p className="eyebrow">YOUR BATON PLANS</p>
-          <h1>{wallet.connection ? "Everything connected to this wallet." : "Your saved Baton plans."}</h1>
-          <p>{wallet.connection
+          <h1>{walletReady ? "Everything connected to this wallet." : "Your saved Baton plans."}</h1>
+          <p>{walletReady
             ? "See plans you created, plans you keep active, and handoffs you may receive. Every result is checked against Cardano before it appears."
             : "Connect Eternl to find plans tied to that account. Plans saved on this device stay visible, and every result is checked against Cardano."}</p>
         </div>
@@ -229,8 +240,10 @@ export default function PlansPage() {
       <section className="plans-account">
         <div>
           <span>ETERNL WALLET</span>
-          <strong>{wallet.connection
-            ? shortHash(wallet.connection.address, 12)
+          <strong>{wallet.revalidating
+            ? "Confirming your selected account"
+            : wallet.connection
+              ? shortHash(wallet.connection.address, 12)
             : waitingForApproval
               ? "Waiting for your approval"
               : checkingPreprod
@@ -242,10 +255,12 @@ export default function PlansPage() {
                     : wallet.availability === "detecting"
                       ? "Looking for Eternl…"
                       : "Connect Eternl to find your plans"}</strong>
-          <small>{wallet.connection
-            ? loading
-              ? "Searching Cardano and this device"
-              : `${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
+          <small>{wallet.revalidating
+            ? "The previous session cannot authorize an action"
+            : wallet.connection
+              ? loading
+                ? "Searching Cardano and this device"
+                : `${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
             : waitingForApproval
               ? "Approve Baton in Eternl; no transaction is being submitted"
               : checkingPreprod
@@ -257,7 +272,7 @@ export default function PlansPage() {
                     : "Saved plans on this device remain visible"}</small>
         </div>
         {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}
-        {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading}>{loading ? "Checking…" : "Refresh"}</button>}
+        {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading || wallet.revalidating}>{wallet.revalidating ? "Confirming…" : loading ? "Checking…" : "Refresh"}</button>}
       </section>
 
       {error && <div className="error-banner">{error}</div>}
