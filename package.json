@@ -13,7 +13,7 @@
     "lint": "eslint . --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
     "blueprint:check": "node scripts/check-blueprint.mjs",
-    "test": "npm run blueprint:check && node --test tests/product.test.mjs && tsx --test tests/cardano-errors.test.ts tests/config.test.ts tests/create-validation.test.ts tests/koios-normalize.test.ts tests/plan-actions.test.ts tests/security-config.test.ts tests/wallet.test.ts tests/emulator.test.ts",
+    "test": "npm run blueprint:check && node --test tests/product.test.mjs && tsx --test tests/cardano-errors.test.ts tests/config.test.ts tests/create-validation.test.ts tests/focus-trap.test.ts tests/koios-normalize.test.ts tests/plan-actions.test.ts tests/security-config.test.ts tests/wallet.test.ts tests/emulator.test.ts",
     "test:network": "tsx --test tests/discovery.test.ts",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "preprod:wallet:init": "tsx scripts/preprod-wallets.ts init",

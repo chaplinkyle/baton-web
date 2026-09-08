@@ -4,7 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { CARDANO_NETWORK } from "@/lib/config";
 import { cardanoBrowseUri, isExactWalletNetwork } from "@/lib/eternl";
+import { wrappedFocusTarget } from "@/lib/focus-trap";
 import { shortHash } from "@/lib/product";
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]:not([tabindex="-1"])',
+  'button:not([disabled]):not([tabindex="-1"])',
+  'input:not([disabled]):not([tabindex="-1"])',
+  'select:not([disabled]):not([tabindex="-1"])',
+  'textarea:not([disabled]):not([tabindex="-1"])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 export function WalletButton() {
   const wallet = useWallet();
@@ -58,21 +68,39 @@ export function WalletButton() {
   useEffect(() => {
     if (!panelOpen) return;
     const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!slotRef.current?.contains(event.target as Node)) closePanel(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closePanel(true);
+      if (!slotRef.current?.contains(event.target as Node)) {
+        closePanel(mobileSheet);
       }
     };
+    const handlePanelKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (connectionPending) return;
+        event.preventDefault();
+        closePanel(true);
+        return;
+      }
+      if (event.key !== "Tab" || !mobileSheet) return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => element.getClientRects().length > 0);
+      const active = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      const target = wrappedFocusTarget(focusable, active, event.shiftKey);
+      if (target === undefined) return;
+      event.preventDefault();
+      (target ?? panel).focus();
+    };
     document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", handlePanelKeyDown);
     return () => {
       document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", handlePanelKeyDown);
     };
-  }, [closePanel, panelOpen]);
+  }, [closePanel, connectionPending, mobileSheet, panelOpen]);
 
   useEffect(() => () => {
     if (copyResetTimer.current) window.clearTimeout(copyResetTimer.current);
@@ -140,7 +168,7 @@ export function WalletButton() {
           <div
             className="wallet-backdrop"
             aria-hidden="true"
-            onClick={() => closePanel(false)}
+            onClick={() => closePanel(true)}
           />
           <section
             ref={panelRef}
