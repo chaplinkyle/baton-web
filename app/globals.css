@@ -486,6 +486,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .file-commit { grid-template-columns: 1fr; align-items: start; }
   .file-picker-action { justify-self: start; }
   .vault-title { align-items: start; flex-direction: column; }
+  .vault-title .button { width: 100%; }
   .plans-title, .plans-account, .plan-card-head, .plan-card-foot { align-items: stretch; flex-direction: column; }
   .plans-title .button, .plans-account .button, .plan-card-foot .button { width: 100%; }
   .plans-overview, .plan-facts, .add-plan-controls { grid-template-columns: 1fr; }
@@ -495,7 +496,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .vault-status { grid-template-columns: 1fr; }
   .status-main { grid-row: 1; }
   .status-main h2 { font-size: 1.65rem; }
-  .status-orbit { grid-row: 2; }
+  .status-orbit { grid-row: 2; justify-self: center; }
   .vault-details, .action-review dl { grid-template-columns: 1fr; }
   .vault-details div, .action-review dl div { border-right: 0; border-bottom: 1px solid var(--line) !important; }
   .verify-input, .verify-results { padding: 20px 16px; }
