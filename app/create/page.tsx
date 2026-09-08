@@ -584,16 +584,19 @@ export default function CreateVault() {
 
           {step === 3 && (
             <div className="form-section">
-              <div className="form-heading"><span>03</span><div><h2>Review your handoff plan</h2><p>Read each choice carefully. Eternl will not open until you ask to prepare the transaction.</p></div></div>
+              <div className="form-heading"><span>03</span><div><h2>Review your handoff plan</h2><p>First, Baton prepares an unsigned transaction for you to inspect. Eternl opens only if you then choose to approve and submit it.</p></div></div>
               <div className="review-ledger">
                 <div><span>PROTECTED NOW</span><strong>{ada || "0"} ADA + {protectedTokenUnits.length} native asset{protectedTokenUnits.length === 1 ? "" : "s"}</strong></div>
-                <div><span>CHECK-IN PERIOD</span><strong>{formatCheckInPeriod(periodMs)}</strong></div>
+                <div className="review-ledger-pair-end"><span>CHECK-IN PERIOD</span><strong>{formatCheckInPeriod(periodMs)}</strong></div>
                 <div><span>ALLOWED MISSES</span><strong>{misses}</strong></div>
-                <div><span>{activeReview ? "HANDOFF AVAILABLE AFTER" : "EXPECTED HANDOFF DATE IF CREATED NOW"}</span><strong>{formatUtc(displayedReleaseAt)}</strong></div>
-                <div><span>WHO CAN RECEIVE</span><strong>{releaseMode === "bearer" ? "Holder of the recovery token" : shortHash(destination || "Not entered", 12)}</strong></div>
+                <div className="review-ledger-pair-end"><span>{activeReview ? "HANDOFF AVAILABLE AFTER" : "EXPECTED HANDOFF DATE IF CREATED NOW"}</span><strong>{formatUtc(displayedReleaseAt)}</strong></div>
+                {protectedTokenUnits.length > 0 && <div className="review-ledger-wide"><span>NATIVE ASSETS</span><ul className="review-asset-list">{protectedTokenUnits.map((unit) => <li key={unit}><code>{unit}</code></li>)}</ul></div>}
+                <div className="review-ledger-wide"><span>CHECK-IN WALLET</span><code className="review-exact-value">{livenessAddress}</code></div>
+                <div className="review-ledger-wide"><span>WHO CAN RECEIVE</span>{releaseMode === "bearer" ? <strong>Holder of the unique Baton recovery token</strong> : <code className="review-exact-value">{destination}</code>}</div>
+                {commitment && <div className="review-ledger-wide"><span>FILE FINGERPRINT</span><code className="review-exact-value">{commitment}</code></div>}
                 <div><span>ONE-TIME SITE FEE</span><strong>{formatAda(SITE_FEE_LOVELACE)}</strong></div>
-                <div><span>LATER SITE FEES</span><strong>None</strong></div>
-                <div><span>CAN THIS SITE TAKE YOUR ASSETS?</span><strong>No</strong></div>
+                <div className="review-ledger-pair-end"><span>LATER SITE FEES</span><strong>None</strong></div>
+                <div className="review-ledger-wide"><span>CAN THIS SITE TAKE YOUR ASSETS?</span><strong>No</strong></div>
               </div>
 
               {!runtimeReadiness.canCreate && <div className="launch-block"><span>REVIEW VERSION</span><strong>Creating a real plan is not enabled yet.</strong><p>You can review the full experience now. Signing will be enabled after the testnet setup and independent safety review are complete.</p></div>}
@@ -601,24 +604,24 @@ export default function CreateVault() {
               {activeReview && reviewConnection && <div className="tx-review">
                 <div className="tx-review-head"><span>READY FOR YOUR APPROVAL</span><strong>{shortHash(activeReview.transactionHash, 12)}</strong></div>
                 <dl>
-                  <div><dt>Connected Eternl account</dt><dd className="mono">{shortHash(reviewConnection.address, 12)}</dd></div>
+                  <div><dt>Connected Eternl account</dt><dd className="mono">{reviewConnection.address}</dd></div>
                   <div><dt>Cardano network</dt><dd>{reviewNetwork}</dd></div>
                   <div><dt>Transaction valid until</dt><dd>{formatUtc(activeReview.validTo)}</dd></div>
-                  <div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div>
-                  <div><dt>Plan identity</dt><dd className="mono">{shortHash(activeReview.contract.policyId, 12)}</dd></div>
-                  <div><dt>Protected Cardano address</dt><dd className="mono">{shortHash(activeReview.contract.address, 14)}</dd></div>
+                  <div><dt>Transaction ID</dt><dd className="mono">{activeReview.transactionHash}</dd></div>
+                  <div><dt>Plan identity</dt><dd className="mono">{activeReview.contract.policyId}</dd></div>
+                  <div><dt>Protected Cardano address</dt><dd className="mono">{activeReview.contract.address}</dd></div>
                   <div><dt>Exactly what will be protected</dt><dd>{formatAda(activeReview.protectedAssets.lovelace ?? 0n)} + {Object.keys(activeReview.protectedAssets).filter((unit) => unit !== "lovelace").length} other asset(s)</dd></div>
                   <div><dt>Minimum ADA required by Cardano</dt><dd>{formatAda(activeReview.minimumAdaLovelace)} · included in the protected ADA</dd></div>
-                  <div><dt>Owner authority</dt><dd className="mono">{shortHash(activeReview.ownerKeyHash, 12)} · may cancel before handoff</dd></div>
-                  <div><dt>Check-in authority</dt><dd className="mono">{shortHash(activeReview.livenessKeyHash, 12)} · may only renew</dd></div>
+                  <div><dt>Owner authority</dt><dd><span className="mono">{activeReview.ownerKeyHash}</span><span>May cancel before handoff</span></dd></div>
+                  <div><dt>Check-in wallet and authority</dt><dd><span className="mono">{livenessAddress}</span><span className="mono">Key hash {activeReview.livenessKeyHash}</span><span>May only renew</span></dd></div>
                   <div><dt>Check-in period</dt><dd>{formatCheckInPeriod(activeReview.checkInPeriodMs)}</dd></div>
                   <div><dt>Misses allowed</dt><dd>{activeReview.missesToRelease}</dd></div>
-                  <div><dt>Who can receive</dt><dd>{activeReview.releaseRule.kind === "fixed" ? shortHash(activeReview.releaseRule.address, 12) : `Holder of recovery token ${shortHash(`${activeReview.releaseRule.policyId}${activeReview.releaseRule.assetName}`, 12)}`}</dd></div>
+                  <div><dt>Who can receive</dt><dd className={activeReview.releaseRule.kind === "fixed" ? "mono" : undefined}>{activeReview.releaseRule.kind === "fixed" ? activeReview.releaseRule.address : `Holder of recovery token ${activeReview.releaseRule.policyId}${activeReview.releaseRule.assetName}`}</dd></div>
                   <div><dt>Recipient control</dt><dd>{activeReview.releaseRule.kind === "fixed" ? "Chosen address is permanent" : "Recovery rights move only with the token"}</dd></div>
                   <div><dt>Initial check-in recorded at</dt><dd>{formatUtc(activeReview.lastCheckInAt)}</dd></div>
                   <div><dt>Handoff available after</dt><dd>{formatUtc(activeReview.releaseAt)}</dd></div>
                   <div><dt>One-time Baton site fee</dt><dd>{formatAda(activeReview.siteFeeLovelace)}</dd></div>
-                  <div><dt>Baton fee recipient</dt><dd className="mono">{shortHash(TREASURY_ADDRESS, 12)}</dd></div>
+                  <div><dt>Baton fee recipient</dt><dd className="mono">{TREASURY_ADDRESS}</dd></div>
                   <div><dt>Later Baton site fees</dt><dd>0 ADA</dd></div>
                   <div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div>
                   <div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div>
@@ -626,7 +629,7 @@ export default function CreateVault() {
                 </dl>
               </div>}
 
-              {submittedHash ? <div className="success-box"><span>{createdManifest ? "CONFIRMED ON" : "PENDING ON"} {CARDANO_NETWORK.toUpperCase()}</span><h3>{createdManifest ? "Your handoff plan is protected." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submittedHash}`} target="_blank" rel="noreferrer">View Cardano transaction {shortHash(submittedHash, 12)} ↗</a>{createdManifest && <div className="success-actions"><button className="button secondary" onClick={() => downloadManifest(createdManifest)}>Download my plan file</button><Link className="button primary" href={`/vault/${submittedHash}`}>Open my handoff plan</Link></div>}<p>Keep the plan file in more than one safe place. It contains no private key or seed phrase, but it helps you return to and independently check this plan.</p></div> : <div className="form-actions"><button className="button secondary" onClick={() => { goToStep(2); invalidateReview(); }}>Back</button>{activeReview ? <button className="button primary" disabled={busy} onClick={submitTransaction}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button> : <button className="button primary" disabled={busy || wallet.revalidating || !runtimeReadiness.canCreate} onClick={prepareTransaction}>{busy ? "Preparing…" : wallet.revalidating ? "Checking account…" : "Prepare for Eternl"}</button>}</div>}
+              {submittedHash ? <div className="success-box"><span>{createdManifest ? "CONFIRMED ON" : "PENDING ON"} {CARDANO_NETWORK.toUpperCase()}</span><h3>{createdManifest ? "Your handoff plan is protected." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submittedHash}`} target="_blank" rel="noreferrer">View Cardano transaction {shortHash(submittedHash, 12)} ↗</a>{createdManifest && <div className="success-actions"><button className="button secondary" onClick={() => downloadManifest(createdManifest)}>Download my plan file</button><Link className="button primary" href={`/vault/${submittedHash}`}>Open my handoff plan</Link></div>}<p>Keep the plan file in more than one safe place. It contains no private key or seed phrase, but it helps you return to and independently check this plan.</p></div> : <div className="form-actions"><button className="button secondary" onClick={() => { goToStep(2); invalidateReview(); }}>Back</button>{activeReview ? <button className="button primary" disabled={busy} onClick={submitTransaction}>{busy ? "Waiting for Eternl…" : "Approve and submit in Eternl"}</button> : <button className="button primary" disabled={busy || wallet.revalidating || !runtimeReadiness.canCreate} onClick={prepareTransaction}>{busy ? "Preparing review…" : wallet.revalidating ? "Checking account…" : "Prepare transaction review"}</button>}</div>}
             </div>
           )}
         </section>

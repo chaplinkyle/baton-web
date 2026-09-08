@@ -270,10 +270,14 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .risk-box p { margin: 5px 0 0; color: #c7b394; }
 .review-ledger { display: grid; grid-template-columns: 1fr 1fr; margin-top: 29px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
 .review-ledger div { padding: 18px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.review-ledger div:nth-child(even) { border-right: 0; }
-.review-ledger div:nth-last-child(-n+2) { border-bottom: 0; }
+.review-ledger .review-ledger-pair-end { border-right: 0; }
+.review-ledger div:last-child { border-bottom: 0; }
+.review-ledger .review-ledger-wide { grid-column: 1 / -1; border-right: 0; }
 .review-ledger span { display: block; color: var(--dim); font-size: .66rem; font-weight: 700; letter-spacing: .06em; }
 .review-ledger strong { display: block; margin-top: 6px; font-size: .9rem; }
+.review-exact-value { display: block; margin-top: 8px; color: var(--ink); font-size: .78rem; line-height: 1.55; overflow-wrap: anywhere; user-select: all; }
+.review-asset-list { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.review-asset-list code { color: var(--ink); font-size: .78rem; overflow-wrap: anywhere; user-select: all; }
 .launch-block { margin-top: 24px; padding: 20px; border: 1px solid #6f5838; border-radius: 8px; background: var(--amber-soft); }
 .launch-block > span { color: var(--amber); font-size: .67rem; font-weight: 750; letter-spacing: .07em; }
 .launch-block strong { display: block; margin-top: 6px; }
@@ -286,6 +290,9 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .tx-review dl div:nth-last-child(-n+2) { border-bottom: 0; }
 .tx-review dt { color: var(--dim); font-family: inherit; font-size: .68rem; }
 .tx-review dd { margin: 5px 0 0; overflow: hidden; text-overflow: ellipsis; font-size: .82rem; }
+.tx-review dd.mono { overflow: visible; text-overflow: clip; overflow-wrap: anywhere; user-select: all; }
+.tx-review dd > span { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+.tx-review dd > span:first-child { margin-top: 0; }
 .success-box { margin-top: 27px; padding: 26px; border: 1px solid var(--signal-2); border-radius: 8px; background: var(--signal-soft); }
 .success-box > span { color: var(--signal); font-size: .68rem; font-weight: 750; }
 .success-box h3 { margin: 8px 0; font-size: 1.6rem; }
@@ -577,7 +584,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .form-section { padding: 24px 18px; }
   .field-grid, .mode-selector, .asset-picker, .review-ledger, .tx-review dl { grid-template-columns: 1fr; }
   .review-ledger div, .tx-review dl div { border-right: 0; border-bottom: 1px solid var(--line) !important; }
-  .tx-review dl div:last-child { border-bottom: 0 !important; }
+  .review-ledger div:last-child, .tx-review dl div:last-child { border-bottom: 0 !important; }
   .form-actions { flex-direction: column-reverse; }
   .form-actions .button { width: 100%; }
   .file-commit { grid-template-columns: 1fr; align-items: start; }
