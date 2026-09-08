@@ -8,6 +8,7 @@ import {
   type EternlConnection,
   isWalletSessionReady,
   reviewForWalletSession,
+  walletIdentityKey,
   walletErrorMessage,
 } from "@/lib/eternl";
 import {
@@ -79,7 +80,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     let cancelled = false;
     const connection = wallet.connection;
     if (!manifest || !connection || wallet.revalidating) return;
-    const key = `${manifest.creationTx}:${connection.address}`;
+    const key = `${manifest.creationTx}:${walletIdentityKey(connection)}`;
 
     void (async () => {
       try {
@@ -88,7 +89,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         if (!cancelled) {
           setWalletRoleResult({
             key,
-            roles: rolesForManifest(manifest, connection.paymentKeyHash, assets),
+            roles: rolesForManifest(manifest, connection.paymentKeyHashes, assets),
             error: null,
           });
         }
@@ -279,7 +280,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       ).length
     : 0;
   const walletRoleKey = manifest && wallet.connection
-    ? `${manifest.creationTx}:${wallet.connection.address}`
+    ? `${manifest.creationTx}:${walletIdentityKey(wallet.connection)}`
     : null;
   const currentWalletRoleResult = walletRoleKey && walletRoleResult?.key === walletRoleKey
     ? walletRoleResult

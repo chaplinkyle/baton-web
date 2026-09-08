@@ -186,15 +186,23 @@ export async function recoverManifestFromCreationTx(txHash: string) {
 
 export function rolesForManifest(
   manifest: VaultManifest,
-  paymentKeyHash: string,
+  paymentKeyHashes: string | readonly string[],
   walletAssets: Assets = {},
 ): PlanRole[] {
+  const walletCredentials = new Set(
+    typeof paymentKeyHashes === "string"
+      ? [paymentKeyHashes]
+      : paymentKeyHashes,
+  );
   const roles: PlanRole[] = [];
-  if (manifest.ownerKeyHash === paymentKeyHash) roles.push("owner");
-  if (manifest.livenessKeyHash === paymentKeyHash) roles.push("check-in");
+  if (walletCredentials.has(manifest.ownerKeyHash)) roles.push("owner");
+  if (walletCredentials.has(manifest.livenessKeyHash)) roles.push("check-in");
   if (manifest.releaseMode === "fixed" && manifest.destination) {
     const credential = getAddressDetails(manifest.destination).paymentCredential;
-    if (credential?.type === "Key" && credential.hash === paymentKeyHash) {
+    if (
+      credential?.type === "Key" &&
+      walletCredentials.has(credential.hash)
+    ) {
       roles.push("recipient");
     }
   }
@@ -219,8 +227,13 @@ export function combineWalletAssets(utxos: UTxO[]) {
 
 export async function discoverWalletManifests(
   lucid: LucidEvolution,
-  paymentKeyHash: string,
+  paymentKeyHashes: string | readonly string[],
 ) {
+  const walletCredentials = [...new Set(
+    typeof paymentKeyHashes === "string"
+      ? [paymentKeyHashes]
+      : paymentKeyHashes,
+  )];
   const [walletUtxos, metadataResponse, credentialResponse] = await Promise.all([
     lucid.wallet().getUtxos(),
     fetch(`${KOIOS_URL}/tx_by_metalabel?_label=${BATON_DISCOVERY_LABEL}`, {
@@ -233,7 +246,7 @@ export async function discoverWalletManifests(
         "Content-Type": "application/json",
         Range: "0-999",
       },
-      body: JSON.stringify({ _payment_credentials: [paymentKeyHash] }),
+      body: JSON.stringify({ _payment_credentials: walletCredentials }),
       cache: "no-store",
     }),
   ]);
@@ -265,7 +278,7 @@ export async function discoverWalletManifests(
           transaction,
           !credentialHashes.has(transaction.tx_hash),
         );
-        const roles = rolesForManifest(manifest, paymentKeyHash, walletAssets);
+        const roles = rolesForManifest(manifest, walletCredentials, walletAssets);
         if (roles.length > 0) discovered.push({ manifest, roles });
       } catch {
         // Metadata labels are public and can be spoofed. Invalid candidates are

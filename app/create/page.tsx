@@ -184,8 +184,8 @@ export default function CreateVault() {
     : null;
   const protectValues = {
     connected: walletReady,
-    ownerPaymentKeyHash: walletReady
-      ? wallet.connection?.paymentKeyHash
+    ownerPaymentKeyHashes: walletReady
+      ? wallet.connection?.paymentKeyHashes
       : undefined,
     ada,
     periodDays,

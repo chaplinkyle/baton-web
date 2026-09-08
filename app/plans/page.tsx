@@ -118,7 +118,7 @@ export default function PlansPage() {
         walletAssets = combineAssets(await connection.lucid.wallet().getUtxos());
         const discovered = await discoverWalletManifests(
           connection.lucid,
-          connection.paymentKeyHash,
+          connection.paymentKeyHashes,
         );
         if (!isCurrent()) return;
         for (const plan of discovered) {
@@ -138,7 +138,7 @@ export default function PlansPage() {
     for (const manifest of local) {
       const existing = merged.get(manifest.creationTx);
       const roles = connection
-        ? rolesForManifest(manifest, connection.paymentKeyHash, walletAssets)
+        ? rolesForManifest(manifest, connection.paymentKeyHashes, walletAssets)
         : [];
       merged.set(manifest.creationTx, {
         manifest,
@@ -259,7 +259,7 @@ export default function PlansPage() {
             ? "The previous session cannot authorize an action"
             : wallet.connection
               ? loading
-                ? "Searching Cardano and this device"
+                ? `Searching ${wallet.connection.paymentKeyHashes.length} wallet address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} and this device`
                 : `${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
             : waitingForApproval
               ? "Approve Baton in Eternl; no transaction is being submitted"

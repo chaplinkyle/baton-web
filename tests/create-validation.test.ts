@@ -17,7 +17,7 @@ const CHECK_IN_ADDRESS = credentialToAddress("Preprod", {
 
 const validProtect = {
   connected: true,
-  ownerPaymentKeyHash: OWNER_KEY,
+  ownerPaymentKeyHashes: [OWNER_KEY],
   ada: "25",
   periodDays: 7,
   misses: 4,
@@ -63,11 +63,21 @@ test("protect step rejects the owner key and non-Preprod check-in addresses", ()
   });
   assert.match(
     validateProtectStep({ ...validProtect, livenessAddress: ownerAddress })?.message ?? "",
-    /different wallet account/i,
+    /different Eternl account/i,
   );
   assert.match(
     validateProtectStep({ ...validProtect, livenessAddress: mainnetAddress })?.message ?? "",
     /Preprod/i,
+  );
+});
+
+test("protect step rejects every address exposed by the creating Eternl account", () => {
+  assert.match(
+    validateProtectStep({
+      ...validProtect,
+      ownerPaymentKeyHashes: [OWNER_KEY, CHECK_IN_KEY],
+    })?.message ?? "",
+    /different Eternl account/i,
   );
 });
 

@@ -12,10 +12,12 @@ import {
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
   walletErrorMessage,
+  walletIdentityKey,
   walletIssuePresentation,
   walletSetupPresentation,
   withWalletTimeout,
 } from "../lib/eternl";
+import { CML } from "@lucid-evolution/lucid";
 
 const OWNER_ADDRESS = "addr_test1qztr0p45temrsjcy6z4dpfardnruyftylxj077c6rrket3sjrc6lv8zv5re7krwmg06djl866jl3ygd9zea2cv0aydtq6fqvee";
 const CHECK_IN_ADDRESS = "addr_test1vptypkdle25xnm2ntne4vsg8jwpe064wkuj9kafqnqx4zysclztwf";
@@ -90,6 +92,25 @@ test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () =
   );
 });
 
+test("wallet identity changes when Eternl exposes a different address set", () => {
+  const base = {
+    address: OWNER_ADDRESS,
+    paymentKeyHash: "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
+    paymentKeyHashes: [
+      "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
+    ],
+    networkId: 0,
+    networkMagic: 1,
+  };
+  assert.notEqual(
+    walletIdentityKey(base),
+    walletIdentityKey({
+      ...base,
+      paymentKeyHashes: [...base.paymentKeyHashes, "11".repeat(28)],
+    }),
+  );
+});
+
 test("wallet requests return successful results", async () => {
   assert.equal(
     await withWalletTimeout(Promise.resolve("connected"), "Connecting", 25),
@@ -155,8 +176,49 @@ test("an authorized wallet session refreshes its account without enable", async 
   );
   assert.equal(refreshed.api, connection.api);
   assert.equal(refreshed.lucid, connection.lucid);
+  assert.deepEqual(refreshed.paymentKeyHashes, [
+    "5640d9bfcaa869ed535cf3564107938397eaaeb7245b7520980d5112",
+  ]);
   assert.equal(networkReads, 1);
   assert.equal(addressReads, 1);
+});
+
+test("an Eternl account exposes every key payment credential for plan discovery", async () => {
+  const toHex = (address: string) => {
+    const decoded = CML.Address.from_bech32(address);
+    try {
+      return decoded.to_hex();
+    } finally {
+      decoded.free();
+    }
+  };
+  const api = {
+    getNetworkId: async () => 0,
+    getUsedAddresses: async () => [toHex(OWNER_ADDRESS)],
+    getUnusedAddresses: async () => [
+      toHex(CHECK_IN_ADDRESS),
+      "not-an-address",
+    ],
+  };
+  const connection = {
+    api,
+    lucid: { wallet: () => ({ address: async () => CHECK_IN_ADDRESS }) },
+    address: CHECK_IN_ADDRESS,
+    paymentKeyHash: "5640d9bfcaa869ed535cf3564107938397eaaeb7245b7520980d5112",
+    paymentKeyHashes: [
+      "5640d9bfcaa869ed535cf3564107938397eaaeb7245b7520980d5112",
+    ],
+    networkId: 0,
+    networkMagic: null,
+    walletName: "Eternl",
+    apiVersion: "1.0.0",
+  } as unknown as EternlConnection;
+
+  const refreshed = await refreshEternlConnection(connection);
+  assert.deepEqual(refreshed.paymentKeyHashes, [
+    "5640d9bfcaa869ed535cf3564107938397eaaeb7245b7520980d5112",
+    "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
+  ]);
 });
 
 test("an authorized wallet refresh still rejects the wrong network", async () => {

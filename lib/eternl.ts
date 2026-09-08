@@ -14,6 +14,7 @@ import {
 
 const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
+const ADDRESS_DISCOVERY_TIMEOUT_MS = 4_000;
 
 export type WalletAvailability = "detecting" | "available" | "missing";
 export type WalletIssueKind = "missing" | "connection" | "refresh";
@@ -40,6 +41,7 @@ export type EternlConnection = {
   lucid: LucidEvolution;
   address: string;
   paymentKeyHash: string;
+  paymentKeyHashes: string[];
   networkId: number;
   networkMagic: number | null;
   walletName: string;
@@ -59,6 +61,21 @@ export function isWalletSessionReady(
   revalidating: boolean,
 ) {
   return connection !== null && !revalidating;
+}
+
+export function walletIdentityKey(
+  connection: Pick<
+    EternlConnection,
+    "address" | "networkId" | "networkMagic" | "paymentKeyHash" | "paymentKeyHashes"
+  >,
+) {
+  const credentials = connection.paymentKeyHashes ?? [connection.paymentKeyHash];
+  return [
+    connection.networkId,
+    connection.networkMagic ?? "unknown",
+    connection.address,
+    ...credentials,
+  ].join(":");
 }
 
 /**
@@ -296,7 +313,7 @@ async function readWalletIdentity(api: EternlWalletApi, lucid: LucidEvolution) {
     "Reading the Eternl account",
     READ_TIMEOUT_MS,
   );
-  const { getAddressDetails } = await import("@lucid-evolution/lucid");
+  const { CML, getAddressDetails } = await import("@lucid-evolution/lucid");
   const paymentCredential = getAddressDetails(address).paymentCredential;
   if (!paymentCredential || paymentCredential.type !== "Key") {
     throw new Error(
@@ -304,11 +321,55 @@ async function readWalletIdentity(api: EternlWalletApi, lucid: LucidEvolution) {
     );
   }
 
+  // One CIP-30 account can expose several HD payment addresses. Plans made
+  // with an older address still belong to the selected Eternl account, so
+  // discovery and role checks must not stop at the current change address.
+  // The confirmed current address remains the fallback for wallet versions
+  // that omit or fail these optional reads.
+  const addressRequests = [
+    typeof api.getUsedAddresses === "function"
+      ? withWalletTimeout(
+          api.getUsedAddresses(),
+          "Reading used Eternl addresses",
+          ADDRESS_DISCOVERY_TIMEOUT_MS,
+        )
+      : Promise.resolve([]),
+    typeof api.getUnusedAddresses === "function"
+      ? withWalletTimeout(
+          api.getUnusedAddresses(),
+          "Reading unused Eternl addresses",
+          ADDRESS_DISCOVERY_TIMEOUT_MS,
+        )
+      : Promise.resolve([]),
+  ];
+  const addressResults = await Promise.allSettled(addressRequests);
+  const paymentKeyHashes = new Set([paymentCredential.hash]);
+  for (const result of addressResults) {
+    if (result.status !== "fulfilled" || !Array.isArray(result.value)) continue;
+    for (const encodedAddress of result.value.slice(0, 500)) {
+      if (typeof encodedAddress !== "string") continue;
+      let decodedAddress: ReturnType<typeof CML.Address.from_hex> | null = null;
+      try {
+        decodedAddress = CML.Address.from_hex(encodedAddress);
+        const details = getAddressDetails(decodedAddress.to_bech32());
+        if (details.networkId !== EXPECTED_NETWORK_ID) continue;
+        const credential = details.paymentCredential;
+        if (credential?.type === "Key") paymentKeyHashes.add(credential.hash);
+      } catch {
+        // Ignore malformed or unsupported provider entries. The primary
+        // address above has already passed full network and key validation.
+      } finally {
+        decodedAddress?.free();
+      }
+    }
+  }
+
   return {
     address,
     networkId,
     networkMagic,
     paymentKeyHash: paymentCredential.hash,
+    paymentKeyHashes: [...paymentKeyHashes].sort(),
   };
 }
 

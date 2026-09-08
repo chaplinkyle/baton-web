@@ -17,7 +17,7 @@ export type CreateValidationIssue = {
 
 type ProtectValues = {
   connected: boolean;
-  ownerPaymentKeyHash?: string;
+  ownerPaymentKeyHashes?: readonly string[];
   ada: string;
   periodDays: number;
   misses: number;
@@ -63,7 +63,7 @@ function addressIssue(
 }
 
 export function validateProtectStep(values: ProtectValues): CreateValidationIssue | null {
-  if (!values.connected || !values.ownerPaymentKeyHash) {
+  if (!values.connected || !values.ownerPaymentKeyHashes?.length) {
     return {
       step: 1,
       field: "wallet",
@@ -121,11 +121,14 @@ export function validateProtectStep(values: ProtectValues): CreateValidationIssu
   if (issue) return issue;
 
   const credential = getAddressDetails(values.livenessAddress).paymentCredential;
-  if (credential?.type === "Key" && credential.hash === values.ownerPaymentKeyHash) {
+  if (
+    credential?.type === "Key" &&
+    values.ownerPaymentKeyHashes.includes(credential.hash)
+  ) {
     return {
       step: 1,
       field: "liveness",
-      message: "Use a different wallet account for check-ins than the account creating this plan.",
+      message: "Choose a check-in address from a different Eternl account. This address belongs to the account creating the plan.",
     };
   }
   return null;

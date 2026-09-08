@@ -25,6 +25,18 @@ only in response to a user action. The adapter uses CIP-30 to:
 No provider method exposes the seed phrase or private key to the site. A wallet
 signature request is shown and approved inside Eternl.
 
+Eternl may expose several used and unused payment addresses for one selected
+account. Baton validates those CIP-30 addresses and searches every key payment
+credential it receives. This keeps older owner, check-in, and fixed-recipient
+roles visible when the wallet's current change address differs from the address
+used by the plan. The current change address remains the fallback for wallet
+versions that do not return their address history.
+
+The creation form also checks the proposed check-in address against that full
+address set. It rejects another address from the creating Eternl account, so
+the interface's separate-account guidance is enforced wherever the wallet can
+expose the relationship.
+
 The interface names each connection phase explicitly: waiting for the person in
 Eternl, then checking the wallet network after approval. A slow network read must
 never look like an unresolved wallet approval. On small screens the wallet

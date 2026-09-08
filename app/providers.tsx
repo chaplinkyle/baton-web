@@ -21,6 +21,7 @@ import {
   isWalletAccountChangeError,
   isEternlAvailable,
   refreshEternlConnection,
+  walletIdentityKey,
   walletConnectionActionLabel,
   walletErrorMessage,
   wasEternlAuthorized,
@@ -189,12 +190,7 @@ export function Providers({ children }: { children: ReactNode }) {
       if (operationVersionRef.current !== operationVersion) return;
       connectedRef.current = true;
       setIssue(null);
-      if (
-        nextConnection.address !== current.address ||
-        nextConnection.networkId !== current.networkId ||
-        nextConnection.networkMagic !== current.networkMagic ||
-        nextConnection.paymentKeyHash !== current.paymentKeyHash
-      ) {
+      if (walletIdentityKey(nextConnection) !== walletIdentityKey(current)) {
         setConnection(nextConnection);
       }
     } catch (cause) {

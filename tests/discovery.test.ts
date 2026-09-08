@@ -50,6 +50,39 @@ test("recovers and verifies the live Preprod plan from its creation transaction"
   assert.deepEqual(rolesForManifest(manifest, ownerKeyHash), ["owner"]);
   assert.deepEqual(rolesForManifest(manifest, livenessKeyHash), ["check-in"]);
   assert.deepEqual(rolesForManifest(manifest, recipientKeyHash), ["recipient"]);
+  assert.deepEqual(
+    rolesForManifest(manifest, [livenessKeyHash, ownerKeyHash]),
+    ["owner", "check-in"],
+  );
+});
+
+test("wallet discovery searches the history of every account payment credential", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("tx_by_metalabel")) return Response.json([]);
+    if (url.endsWith("/credential_txs")) {
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        _payment_credentials: [livenessKeyHash, ownerKeyHash],
+      });
+      return Response.json([{ tx_hash: creationTransaction().tx_hash }]);
+    }
+    if (url.endsWith("/tx_info")) return Response.json([creationTransaction()]);
+    return Response.json({ error: "unexpected test request" }, { status: 500 });
+  };
+  const lucid = {
+    wallet: () => ({ getUtxos: async () => [] }),
+  } as unknown as LucidEvolution;
+
+  try {
+    const discovered = await discoverWalletManifests(
+      lucid,
+      [livenessKeyHash, ownerKeyHash],
+    );
+    assert.deepEqual(discovered[0]?.roles, ["owner", "check-in"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("recovers the live plan from Koios JSON datum when CBOR bytes are omitted", () => {
