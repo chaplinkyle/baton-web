@@ -441,7 +441,8 @@ test("connection refusal uses connection-specific guidance", () => {
     code: -3,
     info: "User canceled connection",
   });
-  assert.match(message, /connection was not approved/i);
+  assert.match(message, /did not approve the connection/i);
+  assert.match(message, /look for Baton's access request/i);
   assert.match(message, /DApp Allowlist/i);
 });
 
@@ -536,16 +537,15 @@ test("wallet reviews require enough time for a deliberate approval", () => {
   assert.equal(walletReviewNeedsRefresh(now + 10_000, now, -1), true);
 });
 
-test("provider network errors retain their useful detail", () => {
+test("exact-network errors use calm guidance instead of protocol internals", () => {
   assert.equal(
     walletErrorMessage({ message: "Network mismatch: switch to Preprod" }),
-    "Network mismatch: switch to Preprod",
+    "Eternl is set to a different Cardano network. Open Eternl, select Preprod, and try again. Baton did not connect or prepare a transaction.",
   );
-});
-
-test("exact-network guidance is not replaced by a generic outage message", () => {
   const detail =
     "Eternl is connected to network magic 2; this release requires Preprod (network magic 1). Switch networks in Eternl and reconnect.";
-
-  assert.equal(walletErrorMessage(new Error(detail)), detail);
+  const message = walletErrorMessage(new Error(detail));
+  assert.doesNotMatch(message, /network (?:magic|id)|\b[12]\b/i);
+  assert.match(message, /select Preprod/i);
+  assert.match(message, /did not connect or prepare a transaction/i);
 });

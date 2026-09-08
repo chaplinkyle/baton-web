@@ -92,6 +92,7 @@ function installFakeEternl(
   api: ReturnType<typeof fakeWalletApi>,
   onEnable: (options: unknown) => void,
   supportedExtensions: Array<{ cip: number }> = [{ cip: 142 }],
+  approval: Promise<ReturnType<typeof fakeWalletApi>> = Promise.resolve(api),
 ) {
   const previousWindow = globalThis.window;
   const previousFetch = globalThis.fetch;
@@ -102,7 +103,7 @@ function installFakeEternl(
     isEnabled: async () => true,
     enable: async (options: unknown) => {
       onEnable(options);
-      return api;
+      return approval;
     },
   };
 
@@ -219,6 +220,40 @@ test("a successful handshake returns a reusable wallet connection", async () => 
     assert.equal(connection.api, api);
     assert.equal(typeof connection.lucid.wallet().address, "function");
     assert.equal(await connection.lucid.wallet().address(), OWNER_ADDRESS);
+  } finally {
+    restoreWindow();
+  }
+});
+
+test("concurrent connection attempts share one Eternl approval and handshake", async () => {
+  const api = fakeWalletApi();
+  let enableCalls = 0;
+  let releaseApproval: ((value: typeof api) => void) | undefined;
+  const approval = new Promise<typeof api>((resolve) => {
+    releaseApproval = resolve;
+  });
+  const restoreWindow = installFakeEternl(
+    api,
+    () => { enableCalls += 1; },
+    [{ cip: 142 }],
+    approval,
+  );
+
+  try {
+    let firstApproved = 0;
+    let secondApproved = 0;
+    const first = connectEternl(() => { firstApproved += 1; });
+    const second = connectEternl(() => { secondApproved += 1; });
+
+    assert.equal(enableCalls, 1);
+    releaseApproval?.(api);
+    const [firstConnection, secondConnection] = await Promise.all([first, second]);
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+    assert.equal(enableCalls, 1);
+    assert.equal(firstApproved, 1);
+    assert.equal(secondApproved, 1);
+    assert.equal(firstConnection, secondConnection);
   } finally {
     restoreWindow();
   }

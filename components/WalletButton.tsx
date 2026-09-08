@@ -311,14 +311,15 @@ export function WalletButton() {
               </div>
               <p>
                 Open Eternl and approve Baton. Your keys stay in Eternl, and
-                connecting does not submit a transaction.
+                connecting does not submit a transaction. Only Eternl can
+                finish or dismiss its approval request.
               </p>
               <div className="wallet-pending-note" role="status">
                 Waiting for your decision in Eternl
               </div>
               <div className="wallet-panel-actions single-action">
                 <button type="button" onClick={() => wallet.cancelConnection()}>
-                  Stop waiting
+                  Stop waiting in Baton
                 </button>
               </div>
             </>
@@ -333,13 +334,14 @@ export function WalletButton() {
               <p>
                 Baton is checking the network and preparing confirmed Cardano
                 data for this account. Nothing is being signed or submitted.
+                Stopping here does not interrupt Eternl.
               </p>
               <div className="wallet-pending-note" role="status">
                 Finishing the secure connection
               </div>
               <div className="wallet-panel-actions single-action">
                 <button type="button" onClick={() => wallet.cancelConnection()}>
-                  Cancel connection
+                  Stop waiting in Baton
                 </button>
               </div>
             </>
@@ -360,7 +362,7 @@ export function WalletButton() {
               </div>
               <div className="wallet-panel-actions single-action">
                 <button type="button" onClick={() => wallet.cancelConnection()}>
-                  Cancel account change
+                  Stop waiting in Baton
                 </button>
               </div>
             </>

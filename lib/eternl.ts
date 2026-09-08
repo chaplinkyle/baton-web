@@ -45,6 +45,27 @@ type EternlProvider = Omit<Window["cardano"][string], "enable"> & {
 };
 type Cip30Error = { code?: unknown; info?: unknown; message?: unknown };
 
+type PendingApproval = {
+  provider: EternlProvider;
+  promise: Promise<EternlWalletApi>;
+};
+
+type PendingConnection = {
+  provider: EternlProvider;
+  promise: Promise<EternlConnection>;
+  approval: {
+    confirmed: boolean;
+    listeners: Set<() => void>;
+  };
+};
+
+// CIP-30 does not define a way for a dApp to cancel `enable()`. Keep both the
+// raw approval and the complete connection handshake single-flight so hiding
+// Baton's waiting state, retrying, or clicking Connect twice cannot stack
+// approval windows in Eternl.
+let pendingApproval: PendingApproval | null = null;
+let pendingConnection: PendingConnection | null = null;
+
 export type EternlConnection = {
   api: EternlWalletApi;
   lucid: LucidEvolution;
@@ -283,11 +304,15 @@ export function walletErrorMessage(
   ) {
     return request === "transaction"
       ? "The transaction was canceled in Eternl. Nothing was signed or submitted. Try again when you are ready."
-      : "Connection was not approved in Eternl. Open Eternl, select your Preprod account, and approve Baton. If no approval window appears, remove Baton from Eternl's DApp Allowlist, reload this page, and try again.";
+      : "Eternl did not approve the connection. Open Eternl, select your Preprod account, and look for Baton's access request. If no request appears and Baton is already in Eternl's DApp Allowlist, remove that entry, reload this page, and try again.";
   }
 
   if (isWalletAccountChangeError(cause)) {
     return "The Eternl account changed. Baton stopped using the previous account. Reopen Eternl and try again. If it keeps selecting another account, disable Forced DApp Account for Baton in Eternl.";
+  }
+
+  if (isWalletNetworkError(cause)) {
+    return `Eternl is set to a different Cardano network. Open Eternl, select ${CARDANO_NETWORK}, and try again. Baton did not connect or prepare a transaction.`;
   }
 
   if (normalized.includes("network")) {
@@ -308,6 +333,24 @@ export function walletErrorMessage(
 export function getEternlProvider(): EternlProvider | null {
   if (typeof window === "undefined") return null;
   return selectEternlProvider(window.cardano);
+}
+
+function requestEternlApproval(
+  provider: EternlProvider,
+  supportsExactNetwork: boolean,
+) {
+  if (pendingApproval?.provider === provider) return pendingApproval.promise;
+
+  const promise = supportsExactNetwork
+    ? provider.enable({ extensions: [{ cip: 142 }] })
+    : provider.enable();
+  const request = { provider, promise };
+  pendingApproval = request;
+  const clear = () => {
+    if (pendingApproval === request) pendingApproval = null;
+  };
+  void promise.then(clear, clear);
+  return promise;
 }
 
 function isCip30Provider(value: unknown): value is EternlProvider {
@@ -518,28 +561,22 @@ export async function refreshEternlConnection(
   };
 }
 
-export async function connectEternl(onApproved?: () => void): Promise<EternlConnection> {
+async function establishEternlConnection(
+  provider: EternlProvider,
+  onApproved: () => void,
+): Promise<EternlConnection> {
   const browserGlobals = globalThis as typeof globalThis & {
     Buffer?: typeof Buffer;
   };
   browserGlobals.Buffer ??= Buffer;
 
-  const provider = getEternlProvider();
-  if (!provider) {
-    throw new Error(
-      "Eternl was not detected. Install the Eternl extension or open Baton in Eternl's dApp browser.",
-    );
-  }
-
   const supportsExactNetwork = hasExtension(provider.supportedExtensions, 142);
   const api = await withWalletTimeout(
-    supportsExactNetwork
-      ? provider.enable({ extensions: [{ cip: 142 }] })
-      : provider.enable(),
+    requestEternlApproval(provider, supportsExactNetwork),
     "Eternl approval",
     APPROVAL_TIMEOUT_MS,
   );
-  onApproved?.();
+  onApproved();
 
   const { Koios, Lucid } = await import(
     "@lucid-evolution/lucid"
@@ -557,4 +594,48 @@ export async function connectEternl(onApproved?: () => void): Promise<EternlConn
     walletName: provider.name || "Eternl",
     apiVersion: provider.apiVersion || "CIP-30",
   };
+}
+
+export function connectEternl(onApproved?: () => void): Promise<EternlConnection> {
+  const provider = getEternlProvider();
+  if (!provider) {
+    return Promise.reject(new Error(
+      "Eternl was not detected. Install the Eternl extension or open Baton in Eternl's dApp browser.",
+    ));
+  }
+
+  if (pendingConnection?.provider === provider) {
+    if (onApproved) {
+      if (pendingConnection.approval.confirmed) {
+        queueMicrotask(onApproved);
+      } else {
+        pendingConnection.approval.listeners.add(onApproved);
+      }
+    }
+    return pendingConnection.promise;
+  }
+
+  const approval = {
+    confirmed: false,
+    listeners: new Set(onApproved ? [onApproved] : []),
+  };
+  const promise = establishEternlConnection(provider, () => {
+    approval.confirmed = true;
+    const listeners = [...approval.listeners];
+    approval.listeners.clear();
+    listeners.forEach((listener) => queueMicrotask(listener));
+  });
+  const request: PendingConnection = {
+    provider,
+    promise,
+    approval,
+  };
+  pendingConnection = request;
+
+  const clear = () => {
+    request.approval.listeners.clear();
+    if (pendingConnection === request) pendingConnection = null;
+  };
+  void request.promise.then(clear, clear);
+  return request.promise;
 }
