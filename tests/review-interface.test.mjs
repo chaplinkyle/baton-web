@@ -42,6 +42,8 @@ test("transaction preparation is visibly separate from signing and submission", 
   );
   assert.doesNotMatch(source, /"Prepare for Eternl"/);
   assert.doesNotMatch(source, /"Approve in Eternl"/);
+  assert.match(source, /wallet\.runWalletRequest\([\s\S]*?signAndSubmitCreation/);
+  assert.match(source, /cleared the old unsigned review/);
 });
 
 test("optional assets and file proof are exact rather than summarized", () => {
@@ -63,6 +65,8 @@ test("every existing-plan action keeps preparation separate from approval", () =
   assert.match(dashboardSource, /Eternl opens only when you choose to approve and submit it/);
   assert.match(dashboardSource, /"Approve and submit in Eternl"/);
   assert.doesNotMatch(dashboardSource, /"Approve in Eternl"/);
+  assert.match(dashboardSource, /wallet\.runWalletRequest\([\s\S]*?signAndSubmitAction/);
+  assert.match(dashboardSource, /cleared the old unsigned action review/);
 });
 
 test("existing-plan reviews expose exact wallet, transaction, and receiving addresses", () => {

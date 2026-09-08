@@ -22,6 +22,7 @@ import {
   isWalletNetworkError,
   isEternlAvailable,
   refreshEternlConnection,
+  WalletInteractionGate,
   walletConnectionActionLabel,
   walletErrorMessage,
   wasEternlAuthorized,
@@ -74,6 +75,7 @@ type WalletContextValue = {
   changeAccount: () => void;
   disconnect: () => void;
   clearError: () => void;
+  runWalletRequest: <T>(request: () => Promise<T>) => Promise<T>;
 };
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -92,6 +94,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const reconnectSuppressedRef = useRef(false);
   const reconnectPreferenceLoadedRef = useRef(false);
   const detectionStartedAtRef = useRef<number | null>(null);
+  const interactionGateRef = useRef(new WalletInteractionGate());
 
   const establishConnection = useCallback(
     async (mode: ConnectionMode = "manual") => {
@@ -282,6 +285,10 @@ export function Providers({ children }: { children: ReactNode }) {
   }, []);
 
   const clearError = useCallback(() => setIssue(null), []);
+  const runWalletRequest = useCallback(
+    <T,>(request: () => Promise<T>) => interactionGateRef.current.run(request),
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -329,6 +336,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
     const rediscover = () => {
       if (cancelled) return;
+      if (interactionGateRef.current.active) return;
       if (connection && !reconnectSuppressedRef.current) {
         void refreshConnection(connection);
         return;
@@ -374,6 +382,7 @@ export function Providers({ children }: { children: ReactNode }) {
       changeAccount,
       disconnect,
       clearError,
+      runWalletRequest,
     }),
     [
       availability,
@@ -387,6 +396,7 @@ export function Providers({ children }: { children: ReactNode }) {
       issue,
       recheckNetwork,
       revalidating,
+      runWalletRequest,
     ],
   );
 

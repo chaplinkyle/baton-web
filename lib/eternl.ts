@@ -152,10 +152,45 @@ export function walletReviewNeedsRefresh(
     validTo - now <= minimumRemainingMs;
 }
 
+export function walletReviewSessionChanged<T extends object>(
+  preparedWith: T | null,
+  current: T | null,
+  revalidating: boolean,
+  requestInProgress: boolean,
+) {
+  return preparedWith !== null &&
+    !revalidating &&
+    !requestInProgress &&
+    preparedWith !== current;
+}
+
 export class WalletRequestTimeoutError extends Error {
   constructor(operation: string) {
     super(`${operation} timed out.`);
     this.name = "WalletRequestTimeoutError";
+  }
+}
+
+/**
+ * Keep passive account refreshes out of the critical section where Eternl is
+ * signing or submitting a reviewed transaction. Browser focus commonly
+ * returns before the CIP-30 promise settles; replacing the wallet session at
+ * that moment would make the review disappear while the request is active.
+ */
+export class WalletInteractionGate {
+  private activeRequests = 0;
+
+  get active() {
+    return this.activeRequests > 0;
+  }
+
+  async run<T>(request: () => Promise<T>): Promise<T> {
+    this.activeRequests += 1;
+    try {
+      return await request();
+    } finally {
+      this.activeRequests -= 1;
+    }
   }
 }
 

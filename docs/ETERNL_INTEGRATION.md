@@ -54,6 +54,16 @@ never look like an unresolved wallet approval. On small screens the wallet
 panel is a focus-contained sheet with an opaque background; on larger screens
 it remains an anchored popover.
 
+Browser focus often returns to Baton just before Eternl resolves a `signTx` or
+`submitTx` promise. Passive focus, visibility, and page-show refreshes are held
+behind a wallet-interaction gate for that complete request. This prevents a
+background account check from replacing the wallet session while an approved
+transaction is still being verified or submitted. Witness and transaction-body
+verification remain the authority boundary. After the request settles, a later
+account refresh starts a new session and invalidates any older unsigned review;
+the interface explains that reset and confirms that nothing was signed or
+submitted from the discarded review.
+
 The connected-wallet panel also provides an explicit account-change path.
 Baton immediately discards the old account, suppresses automatic restoration,
 and waits for the person to select another Eternl account before reconnecting.

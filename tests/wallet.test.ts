@@ -14,12 +14,14 @@ import {
   selectEternlProvider,
   shouldOfferWalletAppHandoff,
   walletAddressSearchDescription,
+  WalletInteractionGate,
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
   walletErrorMessage,
   walletIdentityKey,
   walletIssuePresentation,
   walletReviewNeedsRefresh,
+  walletReviewSessionChanged,
   walletSetupPresentation,
   withWalletTimeout,
 } from "../lib/eternl";
@@ -174,6 +176,31 @@ test("wallet requests return successful results", async () => {
     await withWalletTimeout(Promise.resolve("connected"), "Connecting", 25),
     "connected",
   );
+});
+
+test("wallet interaction gate covers overlapping requests and always reopens", async () => {
+  const gate = new WalletInteractionGate();
+  let releaseFirst!: () => void;
+  let releaseSecond!: () => void;
+  const first = gate.run(() => new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  }));
+  const second = gate.run(() => new Promise<void>((resolve) => {
+    releaseSecond = resolve;
+  }));
+
+  assert.equal(gate.active, true);
+  releaseFirst();
+  await first;
+  assert.equal(gate.active, true);
+  releaseSecond();
+  await second;
+  assert.equal(gate.active, false);
+
+  await assert.rejects(gate.run(async () => {
+    throw new Error("Eternl request failed");
+  }), /request failed/);
+  assert.equal(gate.active, false);
 });
 
 test("wallet requests fail with an actionable timeout", async () => {
@@ -547,6 +574,18 @@ test("wallet reviews require enough time for a deliberate approval", () => {
   assert.equal(walletReviewNeedsRefresh(now - 1, now), true);
   assert.equal(walletReviewNeedsRefresh(Number.NaN, now), true);
   assert.equal(walletReviewNeedsRefresh(now + 10_000, now, -1), true);
+});
+
+test("unsigned reviews reset only after a wallet session replacement settles", () => {
+  const prepared = {};
+  const refreshed = {};
+
+  assert.equal(walletReviewSessionChanged(prepared, prepared, false, false), false);
+  assert.equal(walletReviewSessionChanged(prepared, refreshed, true, false), false);
+  assert.equal(walletReviewSessionChanged(prepared, refreshed, false, true), false);
+  assert.equal(walletReviewSessionChanged(prepared, refreshed, false, false), true);
+  assert.equal(walletReviewSessionChanged(prepared, null, false, false), true);
+  assert.equal(walletReviewSessionChanged(null, refreshed, false, false), false);
 });
 
 test("exact-network errors use calm guidance instead of protocol internals", () => {

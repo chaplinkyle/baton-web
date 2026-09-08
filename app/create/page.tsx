@@ -19,6 +19,7 @@ import {
   MIN_WALLET_APPROVAL_WINDOW_MS,
   reviewForWalletSession,
   walletReviewNeedsRefresh,
+  walletReviewSessionChanged,
   walletErrorMessage,
 } from "@/lib/eternl";
 import {
@@ -228,6 +229,25 @@ export default function CreateVault() {
   const displayedReleaseAt = activeReview?.releaseAt ?? expectedRelease;
 
   useEffect(() => {
+    if (!review || !walletReviewSessionChanged(
+      reviewConnection,
+      wallet.connection,
+      wallet.revalidating,
+      busy,
+    )) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setReview(null);
+      setReviewKey("");
+      setReviewConnection(null);
+      setError((current) => current ??
+        "Eternl refreshed or changed this wallet session, so Baton cleared the old unsigned review. Nothing was signed or submitted. Prepare the review again.");
+    });
+    return () => { cancelled = true; };
+  }, [busy, review, reviewConnection, wallet.connection, wallet.revalidating]);
+
+  useEffect(() => {
     if (!activeReview) return;
     const delay = Math.max(
       0,
@@ -355,7 +375,9 @@ export default function CreateVault() {
     setError(null);
     try {
       const { signAndSubmitCreation } = await import("@/lib/transactions");
-      const txHash = await signAndSubmitCreation(reviewed, connection);
+      const txHash = await wallet.runWalletRequest(
+        () => signAndSubmitCreation(reviewed, connection),
+      );
       setSubmittedHash(txHash);
       invalidateReview();
       const reviewedMode = reviewed.releaseRule.kind;
