@@ -101,6 +101,21 @@ export function reviewForWalletSession<T>(
   return preparedWith !== null && preparedWith === current ? review : null;
 }
 
+/**
+ * Bind read-only results to one exact wallet session. Unlike a transaction
+ * review, a disconnected browser is also a valid session because it can show
+ * plans saved on that device.
+ */
+export function resultForWalletSession<T>(
+  result: T | null,
+  producedWith: EternlConnection | null | undefined,
+  current: EternlConnection | null,
+) {
+  return result !== null && producedWith !== undefined && producedWith === current
+    ? result
+    : null;
+}
+
 export class WalletRequestTimeoutError extends Error {
   constructor(operation: string) {
     super(`${operation} timed out.`);

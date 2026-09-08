@@ -8,6 +8,7 @@ import {
   isWalletNetworkError,
   isWalletSessionReady,
   refreshEternlConnection,
+  resultForWalletSession,
   reviewForWalletSession,
   selectEternlProvider,
   shouldOfferWalletAppHandoff,
@@ -448,6 +449,26 @@ test("wallet-derived reviews and asset lists belong to one exact session", () =>
     assets,
   );
   assert.equal(reviewForWalletSession(assets, firstSession, secondSession), null);
+});
+
+test("plan results never cross wallet sessions", () => {
+  const firstSession = { address: OWNER_ADDRESS } as EternlConnection;
+  const refreshedSession = { address: OWNER_ADDRESS } as EternlConnection;
+  const walletPlans = { plans: ["owner-plan"] };
+  const localPlans = { plans: ["saved-plan"] };
+
+  assert.equal(
+    resultForWalletSession(walletPlans, firstSession, firstSession),
+    walletPlans,
+  );
+  assert.equal(
+    resultForWalletSession(walletPlans, firstSession, refreshedSession),
+    null,
+  );
+  assert.equal(resultForWalletSession(walletPlans, firstSession, null), null);
+  assert.equal(resultForWalletSession(localPlans, null, null), localPlans);
+  assert.equal(resultForWalletSession(null, null, null), null);
+  assert.equal(resultForWalletSession(localPlans, undefined, null), null);
 });
 
 test("provider network errors retain their useful detail", () => {

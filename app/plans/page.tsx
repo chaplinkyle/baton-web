@@ -13,7 +13,12 @@ import {
   type VaultManifest,
 } from "@/lib/manifest";
 import type { PlanRole } from "@/lib/plan-discovery";
-import { isExactWalletNetwork, isWalletSessionReady } from "@/lib/eternl";
+import {
+  type EternlConnection,
+  isExactWalletNetwork,
+  isWalletSessionReady,
+  resultForWalletSession,
+} from "@/lib/eternl";
 import {
   formatAda,
   formatCheckInPeriod,
@@ -32,6 +37,10 @@ type LoadedPlan = {
   lifecycle?: VaultLifecycle;
   error?: string;
   foundThroughWallet: boolean;
+};
+type PlansResult = {
+  connection: EternlConnection | null;
+  plans: LoadedPlan[];
 };
 
 const roleLabels: Record<PlanRole, string> = {
@@ -59,7 +68,7 @@ function combineAssets(utxos: UTxO[]) {
 
 export default function PlansPage() {
   const wallet = useWallet();
-  const [plans, setPlans] = useState<LoadedPlan[]>([]);
+  const [plansResult, setPlansResult] = useState<PlansResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -71,13 +80,20 @@ export default function PlansPage() {
     wallet.connection,
     wallet.revalidating,
   );
+  const walletSession = walletReady ? wallet.connection : null;
+  const currentPlansResult = resultForWalletSession(
+    plansResult,
+    plansResult?.connection,
+    walletSession,
+  );
+  const plans = currentPlansResult?.plans ?? [];
   const waitingForWallet =
     wallet.connectionActivity !== "idle" || wallet.revalidating;
   const waitingForApproval = wallet.connectionActivity === "requesting";
   const checkingPreprod = wallet.connectionActivity === "checking";
   const switchingAccount = wallet.connectionActivity === "switching";
   const revalidatingAccount = wallet.revalidating;
-  const plansArePending = loading || waitingForWallet;
+  const plansArePending = loading || waitingForWallet || !currentPlansResult;
   const walletProgressTitle = waitingForApproval
     ? "Waiting for Eternl…"
     : checkingPreprod
@@ -110,6 +126,7 @@ export default function PlansPage() {
     browserGlobals.Buffer ??= Buffer;
     const [{ discoverWalletManifests, rolesForManifest }, { readOnlyLucid, readVaultLifecycle }] =
       await Promise.all([import("@/lib/plan-discovery"), import("@/lib/vault-state")]);
+    if (!isCurrent()) return;
     setLoading(true);
     setError(null);
     const local = storedManifests();
@@ -152,7 +169,7 @@ export default function PlansPage() {
 
     if (merged.size === 0) {
       if (!isCurrent()) return;
-      setPlans([]);
+      setPlansResult({ connection, plans: [] });
       setLoading(false);
       return;
     }
@@ -177,10 +194,10 @@ export default function PlansPage() {
       );
       if (!isCurrent()) return;
       loaded.sort((left, right) => right.manifest.lastCheckInAtMs - left.manifest.lastCheckInAtMs);
-      setPlans(loaded);
+      setPlansResult({ connection, plans: loaded });
     } catch (cause) {
       if (!isCurrent()) return;
-      setPlans([]);
+      setPlansResult({ connection, plans: [] });
       setError(cardanoErrorMessage(cause, "Baton could not read plans from Cardano."));
     } finally {
       if (isCurrent()) setLoading(false);
@@ -290,9 +307,9 @@ export default function PlansPage() {
 
       <section className="plans-list">
         {waitingForWallet && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{walletProgressTitle}</h2><p>{walletProgressCopy}</p></div>}
-        {!waitingForWallet && loading && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
-        {!waitingForWallet && !loading && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID. If Eternl keeps selecting another account, disable Forced DApp Account for Baton in Eternl.</p></div>}
-        {!waitingForWallet && !loading && plans.map((plan) => {
+        {!waitingForWallet && (loading || !currentPlansResult) && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
+        {!waitingForWallet && !loading && currentPlansResult && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID. If Eternl keeps selecting another account, disable Forced DApp Account for Baton in Eternl.</p></div>}
+        {!waitingForWallet && !loading && currentPlansResult && plans.map((plan) => {
           const active = plan.lifecycle?.kind === "active" ? plan.lifecycle.state : null;
           const status = active
             ? vaultStatus(clock, active.lastCheckInAtMs, plan.manifest.checkInPeriodMs, plan.manifest.missesToRelease)
