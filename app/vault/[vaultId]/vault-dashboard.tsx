@@ -30,7 +30,7 @@ import {
   vaultStatus,
 } from "@/lib/product";
 import { availablePlanActions } from "@/lib/plan-actions";
-import type { PlanRole } from "@/lib/plan-discovery";
+import type { PlanHistoryEntry, PlanRole } from "@/lib/plan-discovery";
 import type {
   ActionReview,
   CompletedVaultState,
@@ -64,6 +64,9 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [submissionConfirmed, setSubmissionConfirmed] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [history, setHistory] = useState<PlanHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const [localTimeZone, setLocalTimeZone] = useState<string | null>(null);
   const [walletRoleResult, setWalletRoleResult] = useState<WalletRoleResult | null>(null);
@@ -127,6 +130,9 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     const isCurrent = () => refreshVersionRef.current === refreshVersion;
     setLoading(true);
     setError(null);
+    setHistory([]);
+    setHistoryError(null);
+    setHistoryLoading(true);
     try {
       const { readVaultLifecycle, readOnlyLucid } = await import("@/lib/vault-state");
       const lucid = connection?.lucid ?? await readOnlyLucid();
@@ -140,13 +146,43 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         setState(null);
         setCompleted(lifecycle.state);
       }
+      setLoading(false);
+      try {
+        const { readPlanHistory } = await import("@/lib/plan-discovery");
+        const nextHistory = await readPlanHistory(
+          knownManifest,
+          lifecycle.kind === "active"
+            ? {
+                kind: "active",
+                txHash: lifecycle.state.utxo.txHash,
+                outputIndex: lifecycle.state.utxo.outputIndex,
+                sequence: lifecycle.state.sequence,
+              }
+            : {
+                kind: "completed",
+                txHash: lifecycle.state.utxo.txHash,
+                outputIndex: lifecycle.state.utxo.outputIndex,
+              },
+        );
+        if (isCurrent()) setHistory(nextHistory);
+      } catch (cause) {
+        if (isCurrent()) {
+          setHistoryError(cardanoErrorMessage(
+            cause,
+            "The plan is confirmed, but its transaction history could not be verified right now.",
+          ));
+        }
+      }
     } catch (cause) {
       if (!isCurrent()) return;
       setState(null);
       setCompleted(null);
       setError(cardanoErrorMessage(cause, "Your confirmed plan could not be read from Cardano."));
     } finally {
-      if (isCurrent()) setLoading(false);
+      if (isCurrent()) {
+        setLoading(false);
+        setHistoryLoading(false);
+      }
     }
   }, [wallet.connection]);
 
@@ -465,6 +501,26 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
 
         {submitted && <div className="success-box" role="status"><span>{submissionConfirmed ? "CONFIRMED ON CARDANO" : "SUBMITTED TO CARDANO"}</span><h3>{submissionConfirmed ? "Your action is complete." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a></div>}
       </>}
+
+      {manifest && (state || completed) && <section className="history-panel" aria-labelledby="plan-history-title">
+        <div className="history-heading">
+          <div><p className="eyebrow">CONFIRMED CARDANO HISTORY</p><h2 id="plan-history-title">Your plan&apos;s record</h2></div>
+          <span>{historyLoading ? "CHECKING CARDANO RECORDS" : historyError ? "HISTORY UNAVAILABLE" : `${history.length} VERIFIED RECORD${history.length === 1 ? "" : "S"}`}</span>
+        </div>
+        <p className="history-intro">Baton checks every entry directly against Cardano and links it to this specific plan. The website cannot add, remove, or change these records.</p>
+        {historyLoading && <div className="history-loading" role="status"><span className="status-dot" aria-hidden="true" />Verifying each confirmed transaction…</div>}
+        {!historyLoading && historyError && <div className="history-error" role="status"><strong>Current plan state is still confirmed.</strong><span>{historyError}</span></div>}
+        {!historyLoading && !historyError && <ol className="history-list">
+          {[...history].reverse().map((entry) => <li key={entry.txHash}>
+            <span className="history-sequence" aria-hidden="true">{entry.kind === "completed" ? "✓" : entry.sequence}</span>
+            <div className="history-event">
+              <strong>{entry.kind === "created" ? "Plan created" : entry.kind === "completed" ? "Plan completed" : `Check-in ${entry.sequence}`}</strong>
+              <span>{entry.kind === "created" ? "Plan began with its protected assets" : entry.kind === "completed" ? "Plan ended permanently on Cardano" : "Check-in confirmed; protected assets stayed in place"}</span>
+            </div>
+            <div className="history-when">{planTime(entry.confirmedAtMs)}<a href={`${EXPLORER_URL}/transaction/${entry.txHash}`} target="_blank" rel="noreferrer">View {shortHash(entry.txHash, 8)} ↗</a></div>
+          </li>)}
+        </ol>}
+      </section>}
     </div>
   );
 }

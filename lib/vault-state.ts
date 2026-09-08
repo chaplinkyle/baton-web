@@ -203,28 +203,7 @@ export async function readConfirmedVault(
     3,
   );
   if (!utxo.datum) throw new Error("Receipt UTxO has no inline datum.");
-  const clock = decodeStateClock(utxo.datum);
-  if (
-    clock.ownerKeyHash !== manifest.ownerKeyHash ||
-    clock.livenessKeyHash !== manifest.livenessKeyHash ||
-    clock.checkInPeriodMs !== manifest.checkInPeriodMs ||
-    clock.missesToRelease !== manifest.missesToRelease
-  ) {
-    throw new Error("Confirmed datum disagrees with immutable manifest fields.");
-  }
-  const expectedDatum = encodeVaultDatum({
-    ownerKeyHash: manifest.ownerKeyHash,
-    livenessKeyHash: manifest.livenessKeyHash,
-    checkInPeriodMs: manifest.checkInPeriodMs,
-    missesToRelease: manifest.missesToRelease,
-    lastCheckInAtMs: clock.lastCheckInAtMs,
-    releaseRule: manifestReleaseRule(manifest),
-    sequence: clock.sequence,
-    payloadCommitment: manifest.payloadCommitment,
-  });
-  if (expectedDatum !== utxo.datum) {
-    throw new Error("Confirmed datum contains release or payload fields not represented by this manifest.");
-  }
+  const clock = validateConfirmedVaultDatum(manifest, utxo.datum);
   return {
     utxo,
     lastCheckInAtMs: clock.lastCheckInAtMs,
@@ -235,6 +214,37 @@ export async function readConfirmedVault(
       manifest.missesToRelease,
     ),
   };
+}
+
+export function validateConfirmedVaultDatum(
+  manifest: VaultManifest,
+  datumCbor: string,
+) {
+  const datum = decodeVaultDatum(datumCbor);
+  if (
+    datum.ownerKeyHash !== manifest.ownerKeyHash ||
+    datum.livenessKeyHash !== manifest.livenessKeyHash ||
+    datum.checkInPeriodMs !== manifest.checkInPeriodMs ||
+    datum.missesToRelease !== manifest.missesToRelease
+  ) {
+    throw new Error("Confirmed datum disagrees with immutable manifest fields.");
+  }
+  const expectedRelease = manifestReleaseRule(manifest);
+  const releaseMatches = datum.releaseRule.kind === expectedRelease.kind && (
+    datum.releaseRule.kind === "fixed" && expectedRelease.kind === "fixed"
+      ? datum.releaseRule.address === expectedRelease.address
+      : datum.releaseRule.kind === "bearer" && expectedRelease.kind === "bearer"
+        ? datum.releaseRule.policyId === expectedRelease.policyId &&
+          datum.releaseRule.assetName === expectedRelease.assetName
+        : false
+  );
+  if (
+    !releaseMatches ||
+    datum.payloadCommitment !== manifest.payloadCommitment
+  ) {
+    throw new Error("Confirmed datum contains release or payload fields not represented by this manifest.");
+  }
+  return datum;
 }
 
 export async function readVaultLifecycle(

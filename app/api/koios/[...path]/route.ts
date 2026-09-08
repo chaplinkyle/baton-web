@@ -5,6 +5,7 @@ const ALLOWED_ENDPOINTS = new Set([
   "account_info",
   "address_info",
   "asset_addresses",
+  "asset_txs",
   "credential_txs",
   "datum_info",
   "epoch_params",

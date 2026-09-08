@@ -3,10 +3,15 @@ import test from "node:test";
 import { BATON_DISCOVERY_LABEL } from "../lib/config";
 import {
   discoverWalletManifests,
+  readPlanHistory,
+  recoverManifestFromCreationTx,
   recoverManifestFromTransaction,
   rolesForManifest,
+  verifyPlanHistory,
+  type KoiosAssetTransaction,
   type KoiosCreationTransaction,
 } from "../lib/plan-discovery";
+import { encodeVaultDatum } from "../lib/contract";
 import type { LucidEvolution } from "@lucid-evolution/lucid";
 
 const policyId = "22ddfeac47add659754b7931f49aaed2e87d93e93f7759625ae6a797";
@@ -54,6 +59,120 @@ test("recovers and verifies the live Preprod plan from its creation transaction"
     rolesForManifest(manifest, [livenessKeyHash, ownerKeyHash]),
     ["owner", "check-in"],
   );
+});
+
+test("verifies creation, check-in, and completion through the canonical receipt chain", () => {
+  const created = creationTransaction();
+  created.outputs[0].tx_hash = created.tx_hash;
+  created.outputs[0].tx_index = 0;
+  const manifest = recoverManifestFromTransaction(created);
+  const pulseHash = "aa".repeat(32);
+  const completeHash = "bb".repeat(32);
+  const receipt = [{
+    policy_id: manifest.policyId,
+    asset_name: manifest.receiptUnit.slice(56),
+    quantity: "1",
+  }];
+  const pulse: KoiosCreationTransaction = {
+    tx_hash: pulseHash,
+    inputs: [{
+      tx_hash: created.tx_hash,
+      tx_index: 0,
+      payment_addr: { bech32: manifest.validatorAddress },
+      asset_list: receipt,
+    }],
+    outputs: [{
+      tx_hash: pulseHash,
+      tx_index: 0,
+      value: "25000000",
+      payment_addr: { bech32: manifest.validatorAddress },
+      inline_datum: {
+        bytes: encodeVaultDatum({
+          ownerKeyHash: manifest.ownerKeyHash,
+          livenessKeyHash: manifest.livenessKeyHash,
+          checkInPeriodMs: manifest.checkInPeriodMs,
+          missesToRelease: manifest.missesToRelease,
+          lastCheckInAtMs: manifest.lastCheckInAtMs + 1_000,
+          releaseRule: { kind: "fixed", address: manifest.destination! },
+          sequence: 1,
+        }),
+      },
+      asset_list: receipt,
+    }],
+    assets_minted: [],
+    metadata: null,
+  };
+  const completed: KoiosCreationTransaction = {
+    tx_hash: completeHash,
+    inputs: [{
+      tx_hash: pulseHash,
+      tx_index: 0,
+      payment_addr: { bech32: manifest.validatorAddress },
+      asset_list: receipt,
+    }],
+    outputs: [{
+      tx_hash: completeHash,
+      tx_index: 0,
+      value: "25000000",
+      payment_addr: { bech32: manifest.destination! },
+      inline_datum: null,
+      asset_list: [{
+        policy_id: manifest.policyId,
+        asset_name: manifest.terminalReceiptUnit.slice(56),
+        quantity: "1",
+      }],
+    }],
+    assets_minted: [{
+      policy_id: manifest.policyId,
+      asset_name: manifest.receiptUnit.slice(56),
+      quantity: "-1",
+    }, {
+      policy_id: manifest.policyId,
+      asset_name: manifest.terminalReceiptUnit.slice(56),
+      quantity: "1",
+    }],
+    metadata: null,
+  };
+  const rows: KoiosAssetTransaction[] = [
+    { tx_hash: completeHash, block_height: 3, block_time: 1_789_000_030 },
+    { tx_hash: pulseHash, block_height: 2, block_time: 1_789_000_020 },
+    { tx_hash: created.tx_hash, block_height: 1, block_time: 1_789_000_010 },
+  ];
+
+  assert.deepEqual(
+    verifyPlanHistory(manifest, rows, [completed, created, pulse], {
+      kind: "completed",
+      txHash: completeHash,
+      outputIndex: 0,
+    }),
+    [
+      { kind: "created", txHash: created.tx_hash, confirmedAtMs: 1_789_000_010_000, sequence: 0 },
+      { kind: "check-in", txHash: pulseHash, confirmedAtMs: 1_789_000_020_000, sequence: 1 },
+      { kind: "completed", txHash: completeHash, confirmedAtMs: 1_789_000_030_000, sequence: 1 },
+    ],
+  );
+
+  assert.deepEqual(
+    verifyPlanHistory(manifest, rows.slice(1), [created, pulse], {
+      kind: "active",
+      txHash: pulseHash,
+      outputIndex: 0,
+      sequence: 1,
+    }).map((entry) => [entry.kind, entry.sequence]),
+    [["created", 0], ["check-in", 1]],
+  );
+
+  const brokenPulse = structuredClone(pulse);
+  brokenPulse.inputs[0].tx_hash = "cc".repeat(32);
+  assert.throws(
+    () => verifyPlanHistory(manifest, rows, [created, brokenPulse, completed], {
+      kind: "completed",
+      txHash: completeHash,
+      outputIndex: 0,
+    }),
+    /outside the canonical receipt chain/,
+  );
+
 });
 
 test("wallet discovery searches the history of every account payment credential", async () => {
@@ -240,6 +359,28 @@ test("live Preprod credential discovery finds the public legacy plan", {
     assert.ok(legacy, "Known public legacy plan was not discovered.");
     assert.deepEqual(legacy.roles, ["owner"]);
     assert.equal(legacy.manifest.receiptName, "LAST_SIGNAL");
+
+    const completedManifest = await recoverManifestFromCreationTx(
+      "5ac5cee8ef48845c86fb63b9f349f8ef18adef4175b544a4561e2d4b796d5b80",
+    );
+    const history = await readPlanHistory(completedManifest, {
+      kind: "completed",
+      txHash: "7aba10c461f6886568a577fff89fba6e3e9b9b235bdb7856709439d968c7b69b",
+      outputIndex: 0,
+    });
+    assert.equal(history.length, 7);
+    assert.deepEqual(
+      history.map((entry) => [entry.kind, entry.sequence]),
+      [
+        ["created", 0],
+        ["check-in", 1],
+        ["check-in", 2],
+        ["check-in", 3],
+        ["check-in", 4],
+        ["check-in", 5],
+        ["completed", 5],
+      ],
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

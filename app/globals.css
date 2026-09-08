@@ -334,6 +334,25 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .action-review dt { color: var(--dim); font-family: inherit; font-size: .67rem; }
 .action-review dd { margin: 5px 0 0; font-size: .86rem; }
 .action-review-note { margin: 16px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.55; }
+.history-panel { margin-top: 22px; padding: 27px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.history-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+.history-heading h2 { margin: 0; font-size: 2rem; }
+.history-heading > span { flex: 0 0 auto; color: var(--signal); font-size: .72rem; font-weight: 750; letter-spacing: .04em; }
+.history-intro { max-width: 72ch; margin: 12px 0 0; color: var(--muted); line-height: 1.6; }
+.history-loading, .history-error { display: flex; align-items: center; gap: 10px; margin-top: 22px; padding: 18px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--base); }
+.history-error { align-items: start; flex-direction: column; gap: 5px; }
+.history-error strong { color: var(--ink); }
+.history-list { margin: 24px 0 0; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; list-style: none; }
+.history-list li { display: grid; grid-template-columns: 38px minmax(0, 1fr) minmax(220px, auto); align-items: center; gap: 16px; padding: 17px; border-bottom: 1px solid var(--line); }
+.history-list li:last-child { border-bottom: 0; }
+.history-sequence { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--signal-2); border-radius: 50%; color: var(--signal); background: var(--signal-soft); font-size: .78rem; font-weight: 750; }
+.history-event { display: grid; gap: 4px; min-width: 0; }
+.history-event strong { font-size: .92rem; }
+.history-event span { color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.history-when { display: grid; justify-items: end; gap: 7px; text-align: right; }
+.history-when .time-pair { justify-items: end; }
+.history-when .time-pair strong { font-size: .82rem; }
+.history-when a { color: var(--signal); font-size: .76rem; text-decoration: underline; }
 
 .plans-shell { padding-block: var(--section-space); }
 .plans-title { display: flex; align-items: end; justify-content: space-between; gap: 35px; padding-bottom: 38px; }
@@ -611,6 +630,12 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .simple-steps article { grid-template-columns: 34px minmax(0, 1fr); gap: 16px; }
   .plans-empty { padding: 24px; }
   .add-plan-panel, .plain-example, .info-cta, .stop-panel, .action-review { padding: 20px; }
+  .history-panel { padding: 20px; }
+  .history-heading { align-items: start; flex-direction: column; gap: 10px; }
+  .history-heading h2 { font-size: 1.65rem; }
+  .history-list li { grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: 12px; padding: 16px 14px; }
+  .history-when { grid-column: 2; justify-items: start; text-align: left; }
+  .history-when .time-pair { justify-items: start; }
   .role-table > div:not(.section-intro) { padding: 20px 0; }
   .role-table strong { margin-top: 16px; }
   .site-footer-inner { gap: 16px; }

@@ -14,7 +14,10 @@ import {
 } from "./config";
 import { parseManifest, type VaultManifest } from "./manifest";
 import { SUPPORTED_RECEIPT_NAMES } from "./protocol-names";
-import { decodeVaultDatum } from "./vault-state";
+import {
+  decodeVaultDatum,
+  validateConfirmedVaultDatum,
+} from "./vault-state";
 
 export type PlanRole = "owner" | "check-in" | "recipient" | "recovery holder";
 
@@ -27,9 +30,13 @@ type KoiosAsset = {
 type KoiosInput = {
   tx_hash: string;
   tx_index: number;
+  payment_addr?: { bech32: string } | null;
+  asset_list?: KoiosAsset[];
 };
 
 type KoiosOutput = {
+  tx_hash?: string;
+  tx_index?: number;
   value: string;
   payment_addr: { bech32: string } | null;
   inline_datum: { bytes: string | null; value?: unknown } | null;
@@ -38,11 +45,38 @@ type KoiosOutput = {
 
 export type KoiosCreationTransaction = {
   tx_hash: string;
+  tx_timestamp?: number;
   inputs: KoiosInput[];
   outputs: KoiosOutput[];
   assets_minted: KoiosAsset[];
   metadata: Record<string, unknown> | null;
 };
+
+export type KoiosAssetTransaction = {
+  tx_hash: string;
+  block_height: number;
+  block_time: number;
+};
+
+export type PlanHistoryEntry = {
+  kind: "created" | "check-in" | "completed";
+  txHash: string;
+  confirmedAtMs: number;
+  sequence: number;
+};
+
+export type PlanHistoryHead =
+  | {
+      kind: "active";
+      txHash: string;
+      outputIndex: number;
+      sequence: number;
+    }
+  | {
+      kind: "completed";
+      txHash: string;
+      outputIndex: number;
+    };
 
 type KoiosMetadataTransaction = {
   tx_hash: string;
@@ -198,6 +232,205 @@ async function fetchTransactionInfo(txHashes: string[]) {
     "Cardano did not return the requested plan transactions.",
   );
   return response.json() as Promise<KoiosCreationTransaction[]>;
+}
+
+async function fetchAssetTransactionHistory(manifest: VaultManifest) {
+  const rows: KoiosAssetTransaction[] = [];
+  const assetName = manifest.receiptUnit.slice(56);
+  const pageSize = 1_000;
+  const maximumRows = 10_000;
+
+  for (let offset = 0; offset < maximumRows; offset += pageSize) {
+    const response = await fetchKoiosRead(
+      () => fetch(
+        `${KOIOS_URL}/asset_txs?_asset_policy=${manifest.policyId}&_asset_name=${assetName}&_history=true`,
+        {
+          headers: { Range: `${offset}-${offset + pageSize - 1}` },
+          cache: "no-store",
+        },
+      ),
+      "Baton could not read this plan's transaction history.",
+    );
+    const page = await response.json() as KoiosAssetTransaction[];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+
+  throw new Error("This plan has more than 10,000 history entries; use an indexer to review the complete chain.");
+}
+
+function historyOutput(
+  transaction: KoiosCreationTransaction,
+  unit: string,
+  address?: string,
+) {
+  return transaction.outputs.find(
+    (output) =>
+      (!address || output.payment_addr?.bech32 === address) &&
+      assetQuantity(output.asset_list ?? [], unit) === 1n,
+  );
+}
+
+function consumesPreviousState(
+  transaction: KoiosCreationTransaction,
+  previous: { txHash: string; outputIndex: number },
+  manifest: VaultManifest,
+) {
+  return transaction.inputs.some(
+    (input) =>
+      input.tx_hash === previous.txHash &&
+      input.tx_index === previous.outputIndex &&
+      input.payment_addr?.bech32 === manifest.validatorAddress &&
+      assetQuantity(input.asset_list ?? [], manifest.receiptUnit) === 1n,
+  );
+}
+
+function historyTimestamp(row: KoiosAssetTransaction) {
+  if (!Number.isSafeInteger(row.block_time) || row.block_time <= 0) {
+    throw new Error("Cardano returned an invalid plan-history timestamp.");
+  }
+  return row.block_time * 1_000;
+}
+
+/**
+ * Verify the indexed asset timeline against the immutable manifest, canonical
+ * datum schema, receipt mint/burn shape, and the exact UTxO chain currently
+ * reported by Cardano. Public indexer rows are treated only as candidates.
+ */
+export function verifyPlanHistory(
+  manifest: VaultManifest,
+  indexedRows: KoiosAssetTransaction[],
+  transactions: KoiosCreationTransaction[],
+  head: PlanHistoryHead,
+): PlanHistoryEntry[] {
+  const contract = applyVault(manifest.seed, manifest.receiptName, CARDANO_NETWORK);
+  if (
+    contract.policyId !== manifest.policyId ||
+    contract.receiptUnit !== manifest.receiptUnit ||
+    contract.terminalReceiptUnit !== manifest.terminalReceiptUnit ||
+    contract.address !== manifest.validatorAddress
+  ) {
+    throw new Error("Plan history does not reproduce the manifest's validator.");
+  }
+
+  const transactionByHash = new Map(
+    transactions.map((transaction) => [transaction.tx_hash, transaction]),
+  );
+  const rows = [...indexedRows].sort(
+    (left, right) => left.block_height - right.block_height,
+  );
+  if (rows.length === 0 || rows[0].tx_hash !== manifest.creationTx) {
+    throw new Error("Plan history does not begin with the manifest's creation transaction.");
+  }
+
+  const history: PlanHistoryEntry[] = [];
+  let previous: { txHash: string; outputIndex: number } | null = null;
+  let expectedSequence = 0;
+  let terminal: { txHash: string; outputIndex: number } | null = null;
+
+  for (const row of rows) {
+    if (!/^[0-9a-f]{64}$/.test(row.tx_hash)) {
+      throw new Error("Cardano returned a malformed plan-history transaction ID.");
+    }
+    const transaction = transactionByHash.get(row.tx_hash);
+    if (!transaction) {
+      throw new Error("Cardano omitted details for a plan-history transaction.");
+    }
+    if (previous && !consumesPreviousState(transaction, previous, manifest)) {
+      throw new Error("Plan history contains a transaction outside the canonical receipt chain.");
+    }
+
+    const activeOutput = historyOutput(
+      transaction,
+      manifest.receiptUnit,
+      manifest.validatorAddress,
+    );
+    if (activeOutput) {
+      if (terminal) throw new Error("Plan history continues after its completion receipt.");
+      const outputIndex = activeOutput.tx_index;
+      if (typeof outputIndex !== "number" || !Number.isInteger(outputIndex) || !activeOutput.inline_datum) {
+        throw new Error("Plan history contains an incomplete canonical state output.");
+      }
+      const datumCbor = inlineDatumCbor(activeOutput);
+      if (!datumCbor) throw new Error("Plan history state has no inline datum.");
+      const datum = validateConfirmedVaultDatum(manifest, datumCbor);
+      if (datum.sequence !== expectedSequence) {
+        throw new Error("Plan history contains a missing or out-of-order check-in sequence.");
+      }
+      const mintedReceipt = assetQuantity(
+        transaction.assets_minted ?? [],
+        manifest.receiptUnit,
+      );
+      if (
+        (expectedSequence === 0 && mintedReceipt !== 1n) ||
+        (expectedSequence > 0 && mintedReceipt !== 0n)
+      ) {
+        throw new Error("Plan history has an invalid active-receipt mint shape.");
+      }
+      history.push({
+        kind: expectedSequence === 0 ? "created" : "check-in",
+        txHash: row.tx_hash,
+        confirmedAtMs: historyTimestamp(row),
+        sequence: expectedSequence,
+      });
+      previous = { txHash: row.tx_hash, outputIndex };
+      expectedSequence += 1;
+      continue;
+    }
+
+    const terminalOutput = historyOutput(transaction, manifest.terminalReceiptUnit);
+    const terminalOutputIndex = terminalOutput?.tx_index;
+    if (
+      !previous ||
+      !terminalOutput ||
+      typeof terminalOutputIndex !== "number" ||
+      !Number.isInteger(terminalOutputIndex) ||
+      assetQuantity(transaction.assets_minted ?? [], manifest.receiptUnit) !== -1n ||
+      assetQuantity(transaction.assets_minted ?? [], manifest.terminalReceiptUnit) !== 1n
+    ) {
+      throw new Error("Plan history contains an invalid completion transition.");
+    }
+    terminal = { txHash: row.tx_hash, outputIndex: terminalOutputIndex };
+    history.push({
+      kind: "completed",
+      txHash: row.tx_hash,
+      confirmedAtMs: historyTimestamp(row),
+      sequence: expectedSequence - 1,
+    });
+  }
+
+  if (head.kind === "active") {
+    if (
+      terminal ||
+      !previous ||
+      previous.txHash !== head.txHash ||
+      previous.outputIndex !== head.outputIndex ||
+      expectedSequence - 1 !== head.sequence
+    ) {
+      throw new Error("Plan history does not end at the current active state.");
+    }
+  } else if (
+    !terminal ||
+    terminal.txHash !== head.txHash ||
+    terminal.outputIndex !== head.outputIndex
+  ) {
+    throw new Error("Plan history does not end at the current completion receipt.");
+  }
+
+  return history;
+}
+
+export async function readPlanHistory(
+  manifest: VaultManifest,
+  head: PlanHistoryHead,
+) {
+  const indexedRows = await fetchAssetTransactionHistory(manifest);
+  const transactions: KoiosCreationTransaction[] = [];
+  const hashes = [...new Set(indexedRows.map((row) => row.tx_hash))];
+  for (let offset = 0; offset < hashes.length; offset += 20) {
+    transactions.push(...await fetchTransactionInfo(hashes.slice(offset, offset + 20)));
+  }
+  return verifyPlanHistory(manifest, indexedRows, transactions, head);
 }
 
 export async function recoverManifestFromCreationTx(txHash: string) {
