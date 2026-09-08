@@ -62,7 +62,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #7fc6ad; box-shadow: 0 0 0 3px rgba(127, 198, 173, .12); }
 .wallet-chevron { display: block; flex: 0 0 auto; width: 14px; height: 14px; margin-left: auto; color: var(--muted); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .wallet-backdrop { display: none; }
-.wallet-panel { position: fixed; z-index: 2; top: 78px; right: max(var(--page-gutter), calc((100% - var(--content-max)) / 2)); width: min(360px, calc(100% - 2 * var(--page-gutter))); max-height: calc(100dvh - 94px); overflow-y: auto; overscroll-behavior: contain; padding: 19px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); background: #1d1f2d; box-shadow: 0 20px 55px rgba(0, 0, 0, .42); }
+.wallet-panel { position: absolute; z-index: 2; top: calc(100% + 10px); right: 0; width: min(360px, 100%); max-height: calc(100dvh - 94px); overflow-y: auto; overscroll-behavior: contain; padding: 19px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); background: #1d1f2d; box-shadow: 0 20px 55px rgba(0, 0, 0, .42); }
 .wallet-panel:focus { outline: none; }
 .wallet-panel-close { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid transparent; border-radius: 7px; color: var(--muted); background: transparent; font-size: 1.25rem; line-height: 1; cursor: pointer; }
 .wallet-panel-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
@@ -527,7 +527,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .site-header-inner { grid-template-columns: 1fr auto; row-gap: 8px; padding-top: 10px; }
   .site-header nav { display: flex; grid-column: 1 / -1; grid-row: 2; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); }
   .wallet-slot { grid-column: 2; grid-row: 1; }
-  .wallet-panel { top: 117px; max-height: calc(100dvh - 133px); }
+  .wallet-panel { max-height: calc(100dvh - 133px); }
   .hero { grid-template-columns: minmax(0, 1fr); gap: 55px; min-height: 0; }
   .hero-stage { width: min(100%, 620px); min-height: 570px; justify-self: center; }
   .hero-art { width: min(78vw, 410px); }
@@ -562,7 +562,6 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .brand-mark { width: 30px; height: 30px; }
   .wallet-button { min-width: auto; padding-inline: 12px; }
   .wallet-button .status-dot { display: none; }
-  .wallet-error { position: fixed; top: 72px; right: 14px; width: calc(100vw - 28px); }
   .hero { padding-block: var(--section-space); gap: 32px; }
   .hero h1 { font-size: clamp(2.25rem, 8.5vw, 3.15rem); }
   .hero-actions { flex-direction: column; }
@@ -711,7 +710,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .role-table strong { margin-top: 16px; }
   .site-footer-inner { gap: 16px; }
   .wallet-backdrop { position: fixed; z-index: 1; top: 107px; right: 0; left: 0; display: block; height: calc(100dvh - 107px); background: var(--base); }
-  .wallet-panel { right: var(--page-gutter); left: var(--page-gutter); width: auto; }
+  .wallet-panel { right: 0; left: 0; width: auto; }
   .wallet-panel-head { align-items: start; flex-direction: column; gap: 10px; }
   .wallet-panel-head > div { width: 100%; }
   .wallet-panel-head strong { overflow: visible; text-overflow: clip; overflow-wrap: anywhere; white-space: normal; }
