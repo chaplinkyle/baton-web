@@ -121,6 +121,17 @@ export default function PlansPage() {
     setLoading(true);
     setError(null);
     const local = storedManifests();
+    // Keep saved plans visible while wallet discovery and current-state reads
+    // run. Roles are deliberately empty until they are recomputed for this
+    // exact wallet session, so a previous account can never leak authority.
+    setPlansResult({
+      connection,
+      plans: local.map((manifest) => ({
+        manifest,
+        roles: [],
+        foundThroughWallet: false,
+      })),
+    });
     const merged = new Map<string, { manifest: VaultManifest; roles: PlanRole[]; foundThroughWallet: boolean }>();
 
     let walletAssets: Assets = {};
@@ -302,10 +313,11 @@ export default function PlansPage() {
       </section>
 
       <section className="plans-list">
-        {waitingForWallet && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{walletProgressTitle}</h2><p>{walletProgressCopy}</p></div>}
-        {!waitingForWallet && (loading || !currentPlansResult) && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
+        {plansArePending && plans.length > 0 && <div className="plans-progress" role="status"><span className="status-dot" aria-hidden="true" /><div><strong>{waitingForWallet ? walletProgressTitle : "Updating your saved plans…"}</strong><small>{waitingForWallet ? walletProgressCopy : "Baton is checking current Cardano status and recalculating wallet roles. Saved plans remain visible while this finishes."}</small></div></div>}
+        {waitingForWallet && plans.length === 0 && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{walletProgressTitle}</h2><p>{walletProgressCopy}</p></div>}
+        {!waitingForWallet && (loading || !currentPlansResult) && plans.length === 0 && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
         {!waitingForWallet && !loading && currentPlansResult && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID. If Eternl keeps selecting another account, disable Forced DApp Account for Baton in Eternl.</p></div>}
-        {!waitingForWallet && !loading && currentPlansResult && plans.map((plan) => {
+        {currentPlansResult && plans.map((plan) => {
           const active = plan.lifecycle?.kind === "active" ? plan.lifecycle.state : null;
           const status = active
             ? vaultStatus(clock, active.lastCheckInAtMs, plan.manifest.checkInPeriodMs, plan.manifest.missesToRelease)
@@ -326,7 +338,7 @@ export default function PlansPage() {
                     : <span>Saved on this device</span>}
                 </div>
               </div>
-              {plan.error ? <p className="plan-error">{plan.error}</p> : <div className="plan-facts">
+              {plan.error ? <p className="plan-error">{plan.error}</p> : !plan.lifecycle ? <div className="plan-checking"><span className="status-dot" aria-hidden="true" /><div><strong>Checking current Cardano status</strong><small>Protected value, dates, and completion state will appear after verification.</small></div></div> : <div className="plan-facts">
                 <div><span>PROTECTED</span><strong>{active ? formatAda(active.utxo.assets.lovelace ?? 0n) : "Plan complete"}</strong></div>
                 <div><span>NEXT CHECK-IN</span><strong>{nextCheckIn ? formatUtc(nextCheckIn) : "No more check-ins"}</strong></div>
                 <div><span>HANDOFF</span><strong>{active ? formatUtc(active.releaseAtMs) : "Completed on Cardano"}</strong></div>

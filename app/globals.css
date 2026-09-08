@@ -386,6 +386,11 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .plans-overview div:last-child { border-right: 0; }
 .plans-overview strong { font-size: 1.7rem; font-weight: 500; }
 .plans-list { display: grid; gap: 16px; margin-top: 22px; }
+.plans-progress, .plan-checking { display: flex; align-items: center; gap: 13px; padding: 16px 19px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--panel); }
+.plans-progress > div, .plan-checking > div { display: grid; gap: 2px; }
+.plans-progress strong, .plan-checking strong { color: var(--ink); font-size: .86rem; }
+.plans-progress small, .plan-checking small { color: var(--muted); font-size: .78rem; }
+.plans-progress .status-dot, .plan-checking .status-dot { flex: 0 0 auto; }
 .plans-empty { display: grid; place-items: center; min-height: 290px; padding: 45px; border: 1px dashed var(--line-strong); border-radius: 10px; color: var(--muted); background: var(--panel); text-align: center; }
 .plans-empty > span { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid var(--signal-2); border-radius: 9px; color: var(--signal); background: var(--signal-soft); font-weight: 700; }
 .plans-empty h2 { margin: 17px 0 0; color: var(--ink); }
@@ -402,6 +407,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .plan-facts div:last-child { border-right: 0; }
 .plan-facts strong { display: block; margin-top: 7px; overflow: hidden; text-overflow: ellipsis; font-size: .86rem; }
 .plan-error { margin: 0; padding: 19px 22px; color: var(--danger); background: var(--danger-soft); }
+.plan-checking { border: 0; border-radius: 0; background: var(--base); }
 .plan-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 14px 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: .75rem; }
 .plan-card-foot .button { min-height: 44px; padding-inline: 14px; }
 .add-plan-panel { display: grid; grid-template-columns: .8fr 1.2fr; gap: 55px; margin-top: 48px; padding: 28px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
