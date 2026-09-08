@@ -10,8 +10,10 @@ import {
   type EternlConnection,
   isExactWalletNetwork,
   isWalletSessionReady,
+  MIN_WALLET_APPROVAL_WINDOW_MS,
   resultForWalletSession,
   reviewForWalletSession,
+  walletReviewNeedsRefresh,
   walletErrorMessage,
 } from "@/lib/eternl";
 import {
@@ -82,6 +84,22 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const activeReview = walletReady
     ? reviewForWalletSession(review, reviewConnection, wallet.connection)
     : null;
+
+  useEffect(() => {
+    if (!activeReview) return;
+    const delay = Math.max(
+      0,
+      activeReview.validTo - Date.now() - MIN_WALLET_APPROVAL_WINDOW_MS,
+    );
+    const timer = window.setTimeout(() => {
+      setReview(null);
+      setReviewConnection(null);
+      setError(
+        "This action review no longer has enough time to approve safely. Nothing was signed or submitted. Prepare it again from the latest confirmed plan state.",
+      );
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [activeReview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -281,6 +299,14 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   async function signAndSubmit() {
     const connection = wallet.connection;
     if (!activeReview || !connection || !manifest) return;
+    if (walletReviewNeedsRefresh(activeReview.validTo)) {
+      setReview(null);
+      setReviewConnection(null);
+      setError(
+        "This action review no longer has enough time to approve safely. Nothing was signed or submitted. Prepare it again from the latest confirmed plan state.",
+      );
+      return;
+    }
     const reviewed = activeReview;
     setBusy(true);
     setError(null);

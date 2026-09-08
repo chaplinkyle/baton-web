@@ -15,6 +15,7 @@ import {
 const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
 const ADDRESS_DISCOVERY_TIMEOUT_MS = 4_000;
+export const MIN_WALLET_APPROVAL_WINDOW_MS = 60_000;
 // A single matching out-ref proves the configured chain. Cap the query to
 // avoid disclosing an account's complete UTxO set to the public indexer.
 const NETWORK_PROOF_UTXO_LIMIT = 5;
@@ -114,6 +115,18 @@ export function resultForWalletSession<T>(
   return result !== null && producedWith !== undefined && producedWith === current
     ? result
     : null;
+}
+
+export function walletReviewNeedsRefresh(
+  validTo: number,
+  now = Date.now(),
+  minimumRemainingMs = MIN_WALLET_APPROVAL_WINDOW_MS,
+) {
+  return !Number.isSafeInteger(validTo) ||
+    !Number.isSafeInteger(now) ||
+    !Number.isSafeInteger(minimumRemainingMs) ||
+    minimumRemainingMs < 0 ||
+    validTo - now <= minimumRemainingMs;
 }
 
 export class WalletRequestTimeoutError extends Error {

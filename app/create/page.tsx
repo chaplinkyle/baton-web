@@ -16,7 +16,9 @@ import {
   type EternlConnection,
   isExactWalletNetwork,
   isWalletSessionReady,
+  MIN_WALLET_APPROVAL_WINDOW_MS,
   reviewForWalletSession,
+  walletReviewNeedsRefresh,
   walletErrorMessage,
 } from "@/lib/eternl";
 import {
@@ -224,6 +226,23 @@ export default function CreateVault() {
     ? reviewForWalletSession(review, reviewConnection, wallet.connection)
     : null;
   const displayedReleaseAt = activeReview?.releaseAt ?? expectedRelease;
+
+  useEffect(() => {
+    if (!activeReview) return;
+    const delay = Math.max(
+      0,
+      activeReview.validTo - Date.now() - MIN_WALLET_APPROVAL_WINDOW_MS,
+    );
+    const timer = window.setTimeout(() => {
+      setReview(null);
+      setReviewKey("");
+      setReviewConnection(null);
+      setError(
+        "This unsigned review no longer has enough time to approve safely. Nothing was signed or submitted. Prepare it again with current wallet inputs and fees.",
+      );
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [activeReview]);
   const protectValues = {
     connected: walletReady,
     ownerPaymentKeyHashes: walletReady
@@ -321,6 +340,15 @@ export default function CreateVault() {
   async function submitTransaction() {
     const connection = wallet.connection;
     if (!activeReview || !connection) return;
+    if (walletReviewNeedsRefresh(activeReview.validTo)) {
+      setReview(null);
+      setReviewKey("");
+      setReviewConnection(null);
+      setError(
+        "This unsigned review no longer has enough time to approve safely. Nothing was signed or submitted. Prepare it again with current wallet inputs and fees.",
+      );
+      return;
+    }
     const reviewed = activeReview;
     setBusy(true);
     setError(null);

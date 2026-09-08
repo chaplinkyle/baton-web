@@ -7,6 +7,7 @@ import {
   isWalletAccountChangeError,
   isWalletNetworkError,
   isWalletSessionReady,
+  MIN_WALLET_APPROVAL_WINDOW_MS,
   refreshEternlConnection,
   resultForWalletSession,
   reviewForWalletSession,
@@ -17,6 +18,7 @@ import {
   walletErrorMessage,
   walletIdentityKey,
   walletIssuePresentation,
+  walletReviewNeedsRefresh,
   walletSetupPresentation,
   withWalletTimeout,
 } from "../lib/eternl";
@@ -469,6 +471,21 @@ test("plan results never cross wallet sessions", () => {
   assert.equal(resultForWalletSession(localPlans, null, null), localPlans);
   assert.equal(resultForWalletSession(null, null, null), null);
   assert.equal(resultForWalletSession(localPlans, undefined, null), null);
+});
+
+test("wallet reviews require enough time for a deliberate approval", () => {
+  const now = 1_000_000;
+  assert.equal(
+    walletReviewNeedsRefresh(now + MIN_WALLET_APPROVAL_WINDOW_MS + 1, now),
+    false,
+  );
+  assert.equal(
+    walletReviewNeedsRefresh(now + MIN_WALLET_APPROVAL_WINDOW_MS, now),
+    true,
+  );
+  assert.equal(walletReviewNeedsRefresh(now - 1, now), true);
+  assert.equal(walletReviewNeedsRefresh(Number.NaN, now), true);
+  assert.equal(walletReviewNeedsRefresh(now + 10_000, now, -1), true);
 });
 
 test("provider network errors retain their useful detail", () => {
