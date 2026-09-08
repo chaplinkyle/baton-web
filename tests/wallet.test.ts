@@ -12,6 +12,7 @@ import {
   walletConnectionActionLabel,
   walletErrorMessage,
   walletIssuePresentation,
+  walletSetupPresentation,
   withWalletTimeout,
 } from "../lib/eternl";
 
@@ -38,6 +39,23 @@ test("wallet recovery copy distinguishes a failed connection from a changed sess
     label: "Wallet session changed",
     title: "Reconnect to continue",
     action: "Reconnect Eternl",
+  });
+});
+
+test("wallet setup guidance matches the browser environment", () => {
+  assert.deepEqual(walletSetupPresentation(true), {
+    title: "Open Baton inside Eternl",
+    message:
+      "This Baton release connects through Eternl. Open its built-in dApp browser, choose Eternl if your phone asks, then select Cardano Preprod.",
+    primaryAction: "Open Baton in Eternl",
+    secondaryAction: "Get Eternl",
+  });
+  assert.deepEqual(walletSetupPresentation(false), {
+    title: "Enable the Eternl extension",
+    message:
+      "Install or enable Eternl in this browser, select Cardano Preprod, then reload Baton.",
+    primaryAction: "Install Eternl",
+    secondaryAction: "Reload Baton",
   });
 });
 

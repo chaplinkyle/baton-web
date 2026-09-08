@@ -111,6 +111,24 @@ export function walletIssuePresentation(kind: WalletIssueKind | null) {
   };
 }
 
+export function walletSetupPresentation(mobile: boolean) {
+  return mobile
+    ? {
+        title: "Open Baton inside Eternl",
+        message:
+          "This Baton release connects through Eternl. Open its built-in dApp browser, choose Eternl if your phone asks, then select Cardano Preprod.",
+        primaryAction: "Open Baton in Eternl",
+        secondaryAction: "Get Eternl",
+      }
+    : {
+        title: "Enable the Eternl extension",
+        message:
+          "Install or enable Eternl in this browser, select Cardano Preprod, then reload Baton.",
+        primaryAction: "Install Eternl",
+        secondaryAction: "Reload Baton",
+      };
+}
+
 export function withWalletTimeout<T>(
   request: Promise<T>,
   operation: string,

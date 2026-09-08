@@ -52,6 +52,25 @@ browser integration. The Content Security Policy remains the authoritative
 frame restriction, with cross-origin isolation and resource-policy headers
 matching Eternl's published integration requirements.
 
+### Mobile handoff
+
+On a small-screen browser where Eternl is not injected, Baton offers the
+standard CIP-158 URI for the current page:
+
+```text
+web+cardano://browse/v1?uri=<percent-encoded Baton URL>
+```
+
+The URI asks the operating system to open a compatible Cardano wallet's dApp
+browser; it does not identify one wallet vendor. Baton therefore tells the
+person to choose Eternl if the phone presents a wallet chooser. Once the page
+opens inside Eternl, its injected `window.cardano.eternl` provider follows the
+same CIP-30 connection flow as the browser extension.
+
+The mobile handoff is not shown on desktop, where the matching recovery path is
+to install or enable the Eternl extension and reload Baton. The interface does
+not claim support for another injected wallet provider in this release.
+
 ## Why `signData` is not the pulse
 
 Eternl can sign an off-chain message, but the Cardano validator cannot discover

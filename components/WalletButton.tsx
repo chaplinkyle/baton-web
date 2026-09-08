@@ -7,6 +7,7 @@ import {
   cardanoBrowseUri,
   isExactWalletNetwork,
   walletIssuePresentation,
+  walletSetupPresentation,
 } from "@/lib/eternl";
 import { wrappedFocusTarget } from "@/lib/focus-trap";
 import { shortHash } from "@/lib/product";
@@ -134,6 +135,7 @@ export function WalletButton() {
   const exactNetworkConfirmed =
     wallet.connection ? isExactWalletNetwork(wallet.connection) : false;
   const issuePresentation = walletIssuePresentation(wallet.issueKind);
+  const setupPresentation = walletSetupPresentation(mobileSheet);
 
   const handlePrimaryClick = () => {
     if (panelOpen) {
@@ -317,30 +319,34 @@ export function WalletButton() {
               <div className="wallet-panel-head">
                 <div>
                   <span>Eternl not detected</span>
-                  <strong>Set up your wallet</strong>
+                  <strong>{setupPresentation.title}</strong>
                 </div>
               </div>
               <p role={wallet.error ? "alert" : undefined}>
-                {wallet.error ?? (
-                  <>
-                    On mobile, open Baton in a compatible wallet app. On
-                    desktop, install or enable Eternl for this browser. Then
-                    select Cardano Preprod.
-                  </>
-                )}
+                {wallet.error ?? setupPresentation.message}
               </p>
               <div className="wallet-panel-actions wallet-setup-actions">
-                <button type="button" onClick={openWalletApp}>
-                  Open in mobile wallet
-                </button>
-                <a href="https://eternl.io" target="_blank" rel="noreferrer">
-                  Install Eternl
-                </a>
-                <button type="button" onClick={() => {
-                  window.location.reload();
-                }}>
-                  Reload after installing
-                </button>
+                {mobileSheet ? (
+                  <>
+                    <button type="button" onClick={openWalletApp}>
+                      {setupPresentation.primaryAction}
+                    </button>
+                    <a href="https://eternl.io/landing" target="_blank" rel="noreferrer">
+                      {setupPresentation.secondaryAction}
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <a href="https://eternl.io/landing" target="_blank" rel="noreferrer">
+                      {setupPresentation.primaryAction}
+                    </a>
+                    <button type="button" onClick={() => {
+                      window.location.reload();
+                    }}>
+                      {setupPresentation.secondaryAction}
+                    </button>
+                  </>
+                )}
               </div>
             </>
           ) : wallet.error ? (
