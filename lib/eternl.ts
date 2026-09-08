@@ -16,6 +16,7 @@ const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
 
 export type WalletAvailability = "detecting" | "available" | "missing";
+export type WalletIssueKind = "missing" | "connection" | "refresh";
 export type WalletConnectionActivity =
   | "idle"
   | "restoring"
@@ -92,6 +93,22 @@ export function walletConnectionActionLabel(
   if (availability === "detecting") return "Finding Eternl…";
   if (availability === "available") return "Connect Eternl";
   return "Set up Eternl";
+}
+
+export function walletIssuePresentation(kind: WalletIssueKind | null) {
+  if (kind === "refresh") {
+    return {
+      label: "Wallet session changed",
+      title: "Reconnect to continue",
+      action: "Reconnect Eternl",
+    };
+  }
+
+  return {
+    label: "Connection needs attention",
+    title: "Eternl did not connect",
+    action: "Try again",
+  };
 }
 
 export function withWalletTimeout<T>(

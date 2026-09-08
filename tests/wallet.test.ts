@@ -11,6 +11,7 @@ import {
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
   walletErrorMessage,
+  walletIssuePresentation,
   withWalletTimeout,
 } from "../lib/eternl";
 
@@ -25,6 +26,19 @@ test("wallet actions describe every discovery and connection state consistently"
   assert.equal(walletConnectionActionLabel("restoring", "available"), "Restoring Eternl…");
   assert.equal(walletConnectionActionLabel("checking", "available"), "Checking wallet…");
   assert.equal(walletConnectionActionLabel("switching", "available"), "Updating account…");
+});
+
+test("wallet recovery copy distinguishes a failed connection from a changed session", () => {
+  assert.deepEqual(walletIssuePresentation("connection"), {
+    label: "Connection needs attention",
+    title: "Eternl did not connect",
+    action: "Try again",
+  });
+  assert.deepEqual(walletIssuePresentation("refresh"), {
+    label: "Wallet session changed",
+    title: "Reconnect to continue",
+    action: "Reconnect Eternl",
+  });
 });
 
 test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () => {

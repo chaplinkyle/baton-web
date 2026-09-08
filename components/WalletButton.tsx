@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { CARDANO_NETWORK } from "@/lib/config";
-import { cardanoBrowseUri, isExactWalletNetwork } from "@/lib/eternl";
+import {
+  cardanoBrowseUri,
+  isExactWalletNetwork,
+  walletIssuePresentation,
+} from "@/lib/eternl";
 import { wrappedFocusTarget } from "@/lib/focus-trap";
 import { shortHash } from "@/lib/product";
 
@@ -129,6 +133,7 @@ export function WalletButton() {
       : wallet.connectionActionLabel;
   const exactNetworkConfirmed =
     wallet.connection ? isExactWalletNetwork(wallet.connection) : false;
+  const issuePresentation = walletIssuePresentation(wallet.issueKind);
 
   const handlePrimaryClick = () => {
     if (panelOpen) {
@@ -342,8 +347,8 @@ export function WalletButton() {
             <>
               <div className="wallet-panel-head">
                 <div>
-                  <span>Connection needs attention</span>
-                  <strong>Eternl did not connect</strong>
+                  <span>{issuePresentation.label}</span>
+                  <strong>{issuePresentation.title}</strong>
                 </div>
               </div>
               <p role="alert">{wallet.error}</p>
@@ -353,7 +358,7 @@ export function WalletButton() {
                   wallet.clearError();
                   void wallet.connect();
                 }}>
-                  Try again
+                  {issuePresentation.action}
                 </button>
                 <button type="button" onClick={() => {
                   closePanel(true);

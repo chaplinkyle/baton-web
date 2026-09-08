@@ -14,6 +14,7 @@ import type {
   EternlConnection,
   WalletAvailability,
   WalletConnectionActivity,
+  WalletIssueKind,
 } from "@/lib/eternl";
 import {
   connectEternl,
@@ -31,7 +32,7 @@ const RECONNECT_SUPPRESSION_KEY = "baton:wallet-reconnect-suppressed:v1";
 type ConnectionMode = "manual" | "restore" | "account-change";
 
 type WalletIssue = {
-  kind: "missing" | "connection" | "refresh";
+  kind: WalletIssueKind;
   message: string;
 };
 
@@ -62,6 +63,7 @@ type WalletContextValue = {
   revalidating: boolean;
   connectionActivity: WalletConnectionActivity;
   error: string | null;
+  issueKind: WalletIssueKind | null;
   available: boolean;
   availability: WalletAvailability;
   connectionActionLabel: string;
@@ -308,6 +310,7 @@ export function Providers({ children }: { children: ReactNode }) {
       revalidating,
       connectionActivity,
       error: issue?.message ?? null,
+      issueKind: issue?.kind ?? null,
       available: availability === "available",
       availability,
       connectionActionLabel: walletConnectionActionLabel(
