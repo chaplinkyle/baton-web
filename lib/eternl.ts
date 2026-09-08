@@ -17,7 +17,7 @@ const READ_TIMEOUT_MS = 12_000;
 const ADDRESS_DISCOVERY_TIMEOUT_MS = 4_000;
 
 export type WalletAvailability = "detecting" | "available" | "missing";
-export type WalletIssueKind = "missing" | "connection" | "refresh";
+export type WalletIssueKind = "missing" | "connection" | "network" | "refresh";
 export type WalletConnectionActivity =
   | "idle"
   | "restoring"
@@ -113,6 +113,14 @@ export function walletConnectionActionLabel(
 }
 
 export function walletIssuePresentation(kind: WalletIssueKind | null) {
+  if (kind === "network") {
+    return {
+      label: "Wrong Cardano network",
+      title: "Switch Eternl to Preprod",
+      action: "Try Preprod again",
+    };
+  }
+
   if (kind === "refresh") {
     return {
       label: "Wallet session changed",
@@ -126,6 +134,13 @@ export function walletIssuePresentation(kind: WalletIssueKind | null) {
     title: "Eternl did not connect",
     action: "Try again",
   };
+}
+
+export function isWalletNetworkError(cause: unknown) {
+  const { detail } = errorDetails(cause);
+  return /network (?:id|magic|mismatch)|requires preprod|switch networks?/i.test(
+    detail ?? "",
+  );
 }
 
 export function shouldOfferWalletAppHandoff(environment: {

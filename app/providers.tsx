@@ -19,6 +19,7 @@ import type {
 import {
   connectEternl,
   isWalletAccountChangeError,
+  isWalletNetworkError,
   isEternlAvailable,
   refreshEternlConnection,
   walletIdentityKey,
@@ -69,6 +70,7 @@ type WalletContextValue = {
   availability: WalletAvailability;
   connectionActionLabel: string;
   connect: () => Promise<void>;
+  cancelConnection: () => void;
   disconnect: () => void;
   clearError: () => void;
 };
@@ -144,7 +146,7 @@ export function Providers({ children }: { children: ReactNode }) {
         setConnection(null);
         if (!silent || connectionWasActive || mode === "account-change") {
           setIssue({
-            kind: "connection",
+            kind: isWalletNetworkError(cause) ? "network" : "connection",
             message: walletErrorMessage(cause, "Eternl connection failed."),
           });
         }
@@ -208,7 +210,7 @@ export function Providers({ children }: { children: ReactNode }) {
         connectedRef.current = false;
         setConnection(null);
         setIssue({
-          kind: "refresh",
+          kind: isWalletNetworkError(cause) ? "network" : "refresh",
           message: walletErrorMessage(
             cause,
             "Baton could not refresh the selected Eternl account.",
@@ -227,6 +229,18 @@ export function Providers({ children }: { children: ReactNode }) {
   }, [establishConnection]);
 
   const disconnect = useCallback(() => {
+    operationVersionRef.current += 1;
+    connectingRef.current = false;
+    setRevalidating(false);
+    reconnectSuppressedRef.current = true;
+    connectedRef.current = false;
+    setConnectionActivity("idle");
+    setConnection(null);
+    setIssue(null);
+    setReconnectSuppressed(true);
+  }, []);
+
+  const cancelConnection = useCallback(() => {
     operationVersionRef.current += 1;
     connectingRef.current = false;
     setRevalidating(false);
@@ -314,12 +328,14 @@ export function Providers({ children }: { children: ReactNode }) {
         availability,
       ),
       connect,
+      cancelConnection,
       disconnect,
       clearError,
     }),
     [
       availability,
       clearError,
+      cancelConnection,
       connect,
       connection,
       connectionActivity,

@@ -278,6 +278,11 @@ export function WalletButton() {
               <div className="wallet-pending-note" role="status">
                 Waiting for your decision in Eternl
               </div>
+              <div className="wallet-panel-actions single-action">
+                <button type="button" onClick={() => wallet.cancelConnection()}>
+                  Stop waiting
+                </button>
+              </div>
             </>
           ) : wallet.connectionActivity === "checking" ? (
             <>
@@ -293,6 +298,11 @@ export function WalletButton() {
               </p>
               <div className="wallet-pending-note" role="status">
                 Finishing the secure connection
+              </div>
+              <div className="wallet-panel-actions single-action">
+                <button type="button" onClick={() => wallet.cancelConnection()}>
+                  Cancel connection
+                </button>
               </div>
             </>
           ) : wallet.connectionActivity === "switching" ? (
@@ -310,6 +320,11 @@ export function WalletButton() {
               <div className="wallet-pending-note" role="status">
                 Updating your wallet account
               </div>
+              <div className="wallet-panel-actions single-action">
+                <button type="button" onClick={() => wallet.cancelConnection()}>
+                  Cancel account change
+                </button>
+              </div>
             </>
           ) : wallet.connectionActivity === "restoring" ? (
             <>
@@ -325,6 +340,11 @@ export function WalletButton() {
               </p>
               <div className="wallet-pending-note" role="status">
                 Restoring your wallet connection
+              </div>
+              <div className="wallet-panel-actions single-action">
+                <button type="button" onClick={() => wallet.cancelConnection()}>
+                  Stop restoring
+                </button>
               </div>
             </>
           ) : !wallet.available ? (

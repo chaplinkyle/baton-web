@@ -5,6 +5,7 @@ import {
   type EternlConnection,
   isExactWalletNetwork,
   isWalletAccountChangeError,
+  isWalletNetworkError,
   isWalletSessionReady,
   refreshEternlConnection,
   reviewForWalletSession,
@@ -43,6 +44,19 @@ test("wallet recovery copy distinguishes a failed connection from a changed sess
     title: "Reconnect to continue",
     action: "Reconnect Eternl",
   });
+  assert.deepEqual(walletIssuePresentation("network"), {
+    label: "Wrong Cardano network",
+    title: "Switch Eternl to Preprod",
+    action: "Try Preprod again",
+  });
+});
+
+test("wallet network failures are classified without confusing user cancellations", () => {
+  assert.equal(isWalletNetworkError(new Error(
+    "Eternl is connected to network magic 2; this release requires Preprod.",
+  )), true);
+  assert.equal(isWalletNetworkError({ message: "Network mismatch: switch to Preprod" }), true);
+  assert.equal(isWalletNetworkError({ info: "User canceled connection" }), false);
 });
 
 test("wallet setup guidance matches the browser environment", () => {
