@@ -16,6 +16,8 @@ import type { PlanRole } from "@/lib/plan-discovery";
 import { isWalletSessionReady } from "@/lib/eternl";
 import {
   formatAda,
+  formatCheckInPeriod,
+  formatMissAllowance,
   formatUtc,
   nextCheckInAt,
   shortHash,
@@ -318,7 +320,7 @@ export default function PlansPage() {
                 <div><span>RECEIVING METHOD</span><strong>{plan.manifest.releaseMode === "fixed" ? "Chosen address" : "Recovery token"}</strong></div>
               </div>}
               <div className="plan-card-foot">
-                <span>Every {plan.manifest.checkInPeriodMs / 86_400_000} days · {plan.manifest.missesToRelease} miss{plan.manifest.missesToRelease === 1 ? "" : "es"} allowed · {plan.foundThroughWallet ? "Found through this wallet" : "Saved on this device"}</span>
+                <span>{`${formatCheckInPeriod(plan.manifest.checkInPeriodMs)} · ${formatMissAllowance(plan.manifest.missesToRelease)} · ${plan.foundThroughWallet ? "Found through this wallet" : "Saved on this device"}`}</span>
                 <Link className="button secondary" href={`/vault/${plan.manifest.creationTx}`}>Open plan</Link>
               </div>
             </article>

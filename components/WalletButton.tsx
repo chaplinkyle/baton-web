@@ -135,6 +135,11 @@ export function WalletButton() {
       : wallet.connectionActionLabel;
   const exactNetworkConfirmed =
     wallet.connection ? isExactWalletNetwork(wallet.connection) : false;
+  const triggerLabel = panelOpen && !wallet.connecting
+    ? "Close Eternl wallet details"
+    : wallet.connection
+      ? `Open Eternl wallet details for ${shortHash(wallet.connection.address, 12)}`
+      : label;
   const issuePresentation = walletIssuePresentation(wallet.issueKind);
   const walletAppHandoff = typeof window !== "undefined" &&
     shouldOfferWalletAppHandoff({
@@ -164,6 +169,8 @@ export function WalletButton() {
         onClick={handlePrimaryClick}
         disabled={wallet.connecting || wallet.availability === "detecting"}
         aria-busy={wallet.revalidating || undefined}
+        aria-label={triggerLabel}
+        aria-haspopup="dialog"
         tabIndex={mobileSheet && panelOpen ? -1 : undefined}
         aria-expanded={panelOpen}
         aria-controls="wallet-panel"
@@ -190,7 +197,7 @@ export function WalletButton() {
             ref={panelRef}
             className="wallet-panel"
             id="wallet-panel"
-            role={mobileSheet ? "dialog" : undefined}
+            role="dialog"
             aria-modal={mobileSheet || undefined}
             aria-label="Eternl wallet"
             tabIndex={-1}

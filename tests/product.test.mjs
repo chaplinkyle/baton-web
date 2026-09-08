@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DAY_MS,
+  formatCheckInPeriod,
+  formatMissAllowance,
   missedCount,
   nextCheckInAt,
   releaseAt,
@@ -24,6 +26,14 @@ test("no missed transaction is needed to derive state", () => {
   assert.equal(missedCount(anchor + 10_000, anchor, 10_000, 3), 1);
   assert.equal(missedCount(anchor + 20_000, anchor, 10_000, 3), 2);
   assert.equal(missedCount(anchor + 30_000, anchor, 10_000, 3), 3);
+});
+
+test("schedule summaries remain grammatical and screen-reader friendly", () => {
+  assert.equal(formatCheckInPeriod(DAY_MS), "Every 1 day");
+  assert.equal(formatCheckInPeriod(30 * DAY_MS), "Every 30 days");
+  assert.equal(formatMissAllowance(1), "1 miss allowed");
+  assert.equal(formatMissAllowance(4), "4 misses allowed");
+  assert.equal(formatMissAllowance(1_000), "1,000 misses allowed");
 });
 
 test("2,000 generated schedules preserve every missed-boundary invariant", () => {

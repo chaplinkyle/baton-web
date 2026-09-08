@@ -59,6 +59,15 @@ export function formatAda(lovelace: bigint) {
   })} ADA`;
 }
 
+export function formatCheckInPeriod(periodMs: number) {
+  const days = periodMs / DAY_MS;
+  return `Every ${days.toLocaleString("en")} ${days === 1 ? "day" : "days"}`;
+}
+
+export function formatMissAllowance(misses: number) {
+  return `${misses.toLocaleString("en")} ${misses === 1 ? "miss" : "misses"} allowed`;
+}
+
 export function shortHash(value: string, edge = 8) {
   if (value.length <= edge * 2 + 1) return value;
   return `${value.slice(0, edge)}…${value.slice(-edge)}`;
