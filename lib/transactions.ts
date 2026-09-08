@@ -1,4 +1,5 @@
 import {
+  CML,
   getAddressDetails,
   valueToAssets,
   type Assets,
@@ -47,9 +48,11 @@ export type CreationReview = {
   ownerKeyHash: string;
   livenessKeyHash: string;
   validFrom: number;
+  validTo: number;
   lastCheckInAt: number;
   releaseAt: number;
   feeLovelace: bigint;
+  minimumAdaLovelace: bigint;
   protectedAssets: Assets;
   transactionHash: string;
   transactionCbor: string;
@@ -246,8 +249,13 @@ async function buildCreationTransaction(
   const transaction = draft.toTransaction();
   const feeLovelace = BigInt(transaction.body().fee().toString());
   const outputs = transaction.body().outputs();
+  const coinsPerUtxoByte = lucid.config().protocolParameters?.coinsPerUtxoByte;
+  if (coinsPerUtxoByte === undefined) {
+    throw new Error("Cardano protocol parameters are unavailable for the minimum-ADA review.");
+  }
   const receiptOutputs: Assets[] = [];
   const recoveryOutputs: Array<{ address: string; assets: Assets }> = [];
+  let minimumAdaLovelace: bigint | null = null;
   let hasExactSiteFeeOutput = interfaceFee === null;
   for (let index = 0; index < outputs.len(); index += 1) {
     const output = outputs.get(index);
@@ -258,6 +266,7 @@ async function buildCreationTransaction(
         throw new Error("Constructed receipt NFT output is not at the expected vault address.");
       }
       receiptOutputs.push(outputAssets);
+      minimumAdaLovelace = CML.min_ada_required(output, coinsPerUtxoByte);
     }
     if (outputAssets[contract.recoveryReceiptUnit] === 1n) {
       recoveryOutputs.push({ address: outputAddress, assets: outputAssets });
@@ -273,6 +282,9 @@ async function buildCreationTransaction(
   }
   if (receiptOutputs.length !== 1) {
     throw new Error("Constructed transaction does not contain one canonical vault output.");
+  }
+  if (minimumAdaLovelace === null) {
+    throw new Error("Constructed transaction is missing its minimum-ADA calculation.");
   }
   if (!assetsEqual(receiptOutputs[0], withReceipt(request.protectedAssets, contract.receiptUnit))) {
     throw new Error("Constructed vault output differs from the exact protected bundle requested.");
@@ -298,10 +310,12 @@ async function buildCreationTransaction(
     ownerKeyHash: ownerCredential.hash,
     livenessKeyHash: livenessCredential.hash,
     validFrom,
+    validTo: lastCheckInAt,
     lastCheckInAt,
     releaseAt:
       lastCheckInAt + request.checkInPeriodMs * request.missesToRelease,
     feeLovelace,
+    minimumAdaLovelace,
     protectedAssets: request.protectedAssets,
     transactionHash: draft.toHash(),
     transactionCbor: draft.toCBOR({ canonical: true }),

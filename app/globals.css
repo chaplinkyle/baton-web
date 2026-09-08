@@ -267,6 +267,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .tx-review dl { display: grid; grid-template-columns: 1fr 1fr; margin: 0; }
 .tx-review dl div { min-width: 0; padding: 15px 18px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .tx-review dl div:nth-child(even) { border-right: 0; }
+.tx-review dl div:nth-last-child(-n+2) { border-bottom: 0; }
 .tx-review dt { color: var(--dim); font-family: inherit; font-size: .68rem; }
 .tx-review dd { margin: 5px 0 0; overflow: hidden; text-overflow: ellipsis; font-size: .82rem; }
 .success-box { margin-top: 27px; padding: 26px; border: 1px solid var(--signal-2); border-radius: 8px; background: var(--signal-soft); }
@@ -492,6 +493,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .form-section { padding: 24px 18px; }
   .field-grid, .mode-selector, .asset-picker, .review-ledger, .tx-review dl { grid-template-columns: 1fr; }
   .review-ledger div, .tx-review dl div { border-right: 0; border-bottom: 1px solid var(--line) !important; }
+  .tx-review dl div:last-child { border-bottom: 0 !important; }
   .form-actions { flex-direction: column-reverse; }
   .form-actions .button { width: 100%; }
   .file-commit { grid-template-columns: 1fr; align-items: start; }

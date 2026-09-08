@@ -67,6 +67,24 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     );
     assert.equal(review.siteFeeLovelace, 0n, `${label} must not add a Baton action fee`);
   };
+  const assertCreationReviewIntegrity = (
+    review: Awaited<ReturnType<typeof buildCreation>>,
+    label: string,
+  ) => {
+    const ttl = review.draft.toTransaction().body().ttl();
+    assert.notEqual(ttl, undefined, `${label} must have a finite upper validity bound`);
+    assert.equal(
+      review.validTo,
+      lucid.slotToUnixTime(Number(ttl)),
+      `${label} review expiry must match the transaction body`,
+    );
+    assert.equal(review.validTo, review.lastCheckInAt);
+    assert.ok(review.minimumAdaLovelace > 0n, `${label} minimum ADA must be positive`);
+    assert.ok(
+      review.minimumAdaLovelace <= (review.protectedAssets.lovelace ?? 0n),
+      `${label} must protect enough ADA for its canonical output`,
+    );
+  };
 
   function manifestFrom(
     creationTx: string,
@@ -140,6 +158,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
   );
 
   const directReview = await buildDirectCreation(lucid, validRequest, emulator.now());
+  assertCreationReviewIntegrity(directReview, "direct no-fee creation");
   assert.equal(directReview.siteFeeLovelace, 0n);
   assert.equal(directReview.checkInPeriodMs, validRequest.checkInPeriodMs);
   assert.equal(directReview.missesToRelease, validRequest.missesToRelease);
@@ -183,6 +202,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     missesToRelease: 4,
     releaseRule: { kind: "fixed", address: beneficiary.address },
   }, emulator.now());
+  assertCreationReviewIntegrity(liveReview, "fixed creation with native assets");
   assert.equal(liveReview.siteFeeLovelace, 5_000_000n);
   assert.equal(liveReview.checkInPeriodMs, periodMs);
   assert.equal(liveReview.missesToRelease, 4);
@@ -315,6 +335,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     missesToRelease: 1,
     releaseRule: { kind: "fixed", address: beneficiary.address },
   }, emulator.now());
+  assertCreationReviewIntegrity(fixedReview, "fixed release creation");
   const fixedCreationTx = await signAndSubmitCreation(fixedReview);
   emulator.awaitBlock(1);
   const fixedManifest = manifestFrom(
@@ -353,6 +374,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     missesToRelease: 1,
     releaseRule: { kind: "bearer" },
   }, emulator.now());
+  assertCreationReviewIntegrity(bearerReview, "bearer creation");
   const recoveryUnit = bearerReview.contract.recoveryReceiptUnit;
   assert.deepEqual(bearerReview.releaseRule, {
     kind: "bearer",
@@ -424,6 +446,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
       missesToRelease: generatedMisses,
       releaseRule: { kind: "fixed", address: beneficiary.address },
     }, emulator.now());
+    assertCreationReviewIntegrity(generatedReview, `generated creation ${index}`);
     assertTransactionBudget(generatedReview, `generated creation ${index}`);
     const creationTx = await signAndSubmitCreation(generatedReview);
     emulator.awaitBlock(1);
