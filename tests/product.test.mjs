@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   DAY_MS,
   missedCount,
+  nextCheckInAt,
   releaseAt,
   vaultStatus,
 } from "../lib/product.ts";
@@ -11,6 +12,7 @@ import { parseManifest } from "../lib/manifest.ts";
 test("four misses release on the fourth boundary", () => {
   const anchor = Date.UTC(2026, 7, 1);
   const period = 7 * DAY_MS;
+  assert.equal(nextCheckInAt(anchor, period), Date.UTC(2026, 7, 8));
   assert.equal(releaseAt(anchor, period, 4), Date.UTC(2026, 7, 29));
   assert.equal(missedCount(Date.UTC(2026, 7, 22), anchor, period, 4), 3);
   assert.equal(vaultStatus(Date.UTC(2026, 7, 29), anchor, period, 4), "claimable");

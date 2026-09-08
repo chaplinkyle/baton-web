@@ -19,6 +19,7 @@ import {
   formatAda,
   formatUtc,
   missedCount,
+  nextCheckInAt,
   shortHash,
   vaultStatus,
 } from "@/lib/product";
@@ -39,7 +40,7 @@ type WalletRoleResult = {
 const statusLabels = {
   active: "Your plan is protected",
   due: "Check-in due soon",
-  missed: "A check-in was missed",
+  missed: "Check-in overdue",
   claimable: "Handoff is available",
 };
 
@@ -239,6 +240,41 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const missed = manifest && state
     ? missedCount(clock, state.lastCheckInAtMs, manifest.checkInPeriodMs, manifest.missesToRelease)
     : 0;
+  const nextCheckIn = manifest && state
+    ? nextCheckInAt(state.lastCheckInAtMs, manifest.checkInPeriodMs)
+    : null;
+  const nextMissBoundary = manifest && state
+    ? Math.min(
+        state.releaseAtMs,
+        state.lastCheckInAtMs + manifest.checkInPeriodMs * (missed + 1),
+      )
+    : null;
+  const scheduleMoment = state && nextCheckIn !== null && nextMissBoundary !== null
+    ? status === "claimable"
+      ? {
+          label: "HANDOFF AVAILABLE SINCE",
+          at: state.releaseAtMs,
+          detail: "The waiting period has ended.",
+        }
+      : status === "missed"
+        ? {
+            label: missed + 1 >= (manifest?.missesToRelease ?? 0)
+              ? "HANDOFF AVAILABLE AFTER"
+              : "NEXT CHECK-IN DEADLINE",
+            at: nextMissBoundary,
+            detail: `Handoff remains locked until ${formatUtc(state.releaseAtMs)}.`,
+          }
+        : {
+            label: "NEXT CHECK-IN DUE",
+            at: nextCheckIn,
+            detail: `Handoff remains locked until ${formatUtc(state.releaseAtMs)}.`,
+          }
+    : null;
+  const protectedAssetCount = manifest && state
+    ? Object.keys(state.utxo.assets).filter(
+        (unit) => unit !== "lovelace" && unit !== manifest.receiptUnit,
+      ).length
+    : 0;
   const walletRoleKey = manifest && wallet.connection
     ? `${manifest.creationTx}:${wallet.connection.address}`
     : null;
@@ -272,24 +308,29 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   return (
     <div className="page-shell vault-shell">
       <header className="page-title vault-title">
-        <div><p className="eyebrow">YOUR HANDOFF PLAN · {shortHash(vaultId, 6).toUpperCase()}</p><h1>{loading ? "Checking Cardano…" : !manifest ? "Open your Baton plan" : completed ? "This plan is complete" : statusLabels[status]}</h1></div>
+        <div><p className="eyebrow">YOUR HANDOFF PLAN · {shortHash(vaultId, 6).toUpperCase()}</p><h1>{loading ? "Checking Cardano…" : !manifest ? "Open your Baton plan" : completed ? "This plan is complete" : "Your Baton plan"}</h1></div>
         {manifest && <button className="button secondary" onClick={() => downloadManifest(manifest)}>Download plan file</button>}
       </header>
 
       {error && <div className="error-banner">{error}</div>}
-      {!manifest && <label className="manifest-drop"><input type="file" accept="application/json,.json" aria-label="Choose a saved Baton plan file" onChange={(e) => importFile(e.target.files?.[0])} /><span className="manifest-drop-button" aria-hidden="true">Choose file</span><span className="manifest-drop-copy"><strong>Open your saved plan file</strong><small>{fileName ?? "It contains no seed phrase or private key."}</small></span></label>}
+      {loading && <div className="vault-loading" role="status"><span className="status-dot" aria-hidden="true" /><div><strong>Checking this plan on Cardano</strong><small>Reading the confirmed assets, schedule, and latest check-in.</small></div></div>}
+      {!loading && !manifest && <label className="manifest-drop"><input type="file" accept="application/json,.json" aria-label="Choose a saved Baton plan file" onChange={(e) => importFile(e.target.files?.[0])} /><span className="manifest-drop-button" aria-hidden="true">Choose file</span><span className="manifest-drop-copy"><strong>Open your saved plan file</strong><small>{fileName ?? "It contains no seed phrase or private key."}</small></span></label>}
 
       {manifest && completed && <section className="success-box"><span>COMPLETION CONFIRMED ON CARDANO</span><h3>This handoff plan has ended.</h3><p>The active receipt was permanently retired. The completion receipt and final assets are at <span className="mono">{shortHash(completed.utxo.address, 16)}</span>.</p>{submitted && <a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a>}</section>}
 
       {manifest && state && <>
         <section className={`vault-status status-${status}`}>
           <div className="status-orbit"><span>{missed}</span><small>OF {manifest.missesToRelease}<br />MISSED</small></div>
-          <div className="status-main"><span className="eyebrow">CONFIRMED ON CARDANO · {state.sequence} CHECK-IN{state.sequence === 1 ? "" : "S"}</span><h2>{statusLabels[status]}</h2><p>{status === "claimable" ? "The full waiting period has passed. Your chosen recipient method can now complete the handoff." : `Check in before ${formatUtc(state.releaseAtMs)} to begin the full waiting period again.`}</p></div>
-          <div className="status-clock"><span>HANDOFF AVAILABLE AFTER</span><strong>{formatUtc(state.releaseAtMs)}</strong><small>Your local time: {new Date(state.releaseAtMs).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</small></div>
+          <div className="status-main"><span className="eyebrow">CONFIRMED ON CARDANO · {state.sequence} CHECK-IN{state.sequence === 1 ? "" : "S"}</span><h2>{statusLabels[status]}</h2><p>{status === "claimable"
+            ? "The full waiting period has passed. Your chosen recipient method can now complete the handoff."
+            : status === "missed"
+              ? `You have missed ${missed} of ${manifest.missesToRelease} allowed check-ins. Check in now to reset the waiting period.`
+              : `Check in by ${formatUtc(nextCheckIn!)} to stay on schedule.`}</p></div>
+          {scheduleMoment && <div className="status-clock"><span>{scheduleMoment.label}</span><strong>{formatUtc(scheduleMoment.at)}</strong><small>{scheduleMoment.detail}</small></div>}
         </section>
 
         <section className="vault-grid">
-          <div className="vault-details"><div><span>PLAN ID</span><strong className="mono">{shortHash(manifest.receiptUnit, 14)}</strong></div><div><span>PROTECTED ADDRESS</span><strong className="mono">{shortHash(manifest.validatorAddress, 14)}</strong></div><div><span>CHECK IN</span><strong>Every {manifest.checkInPeriodMs / 86_400_000} days</strong></div><div><span>RECIPIENT METHOD</span><strong>{manifest.releaseMode === "bearer" ? "Recovery token" : "Chosen address"}</strong></div><div><span>LAST CHECK-IN</span><strong>{formatUtc(state.lastCheckInAtMs)}</strong></div><div><span>WHAT IS PROTECTED</span><strong>{formatAda(state.utxo.assets.lovelace ?? 0n)} + {Object.keys(state.utxo.assets).length - 2} other asset(s)</strong></div></div>
+          <div className="vault-details"><div><span>PLAN ID</span><strong className="mono">{shortHash(manifest.receiptUnit, 14)}</strong></div><div><span>PROTECTED ADDRESS</span><strong className="mono">{shortHash(manifest.validatorAddress, 14)}</strong></div><div><span>CHECK IN</span><strong>Every {manifest.checkInPeriodMs / 86_400_000} days</strong></div><div><span>RECIPIENT METHOD</span><strong>{manifest.releaseMode === "bearer" ? "Recovery token" : "Chosen address"}</strong></div><div><span>LAST CHECK-IN</span><strong>{formatUtc(state.lastCheckInAtMs)}</strong></div><div><span>WHAT IS PROTECTED</span><strong>{formatAda(state.utxo.assets.lovelace ?? 0n)} + {protectedAssetCount === 0 ? "no other assets" : `${protectedAssetCount} other asset${protectedAssetCount === 1 ? "" : "s"}`}</strong></div></div>
           <div className="action-panel">
             <p className="eyebrow">WHAT YOU CAN DO NOW</p>
             {!wallet.connection ? <div className="action-guidance">

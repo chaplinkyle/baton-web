@@ -17,6 +17,10 @@ export function releaseAt(
   return lastCheckInAt + periodMs * missesToRelease;
 }
 
+export function nextCheckInAt(lastCheckInAt: number, periodMs: number) {
+  return lastCheckInAt + periodMs;
+}
+
 export function missedCount(
   now: number,
   lastCheckInAt: number,

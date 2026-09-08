@@ -275,6 +275,10 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .manifest-drop-button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 15px; border: 1px solid var(--signal-2); border-radius: 7px; color: var(--signal); background: var(--signal-soft); font-size: .8rem; font-weight: 700; }
 .manifest-drop-copy { display: grid; min-width: 0; }
 .manifest-drop-copy small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.vault-loading { display: flex; align-items: center; gap: 14px; min-height: 86px; padding: 22px 24px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--panel); }
+.vault-loading > div { display: grid; gap: 3px; }
+.vault-loading strong { color: var(--ink); }
+.vault-loading small { color: var(--muted); }
 .vault-status { display: grid; grid-template-columns: 140px 1fr 250px; gap: 28px; align-items: center; padding: 27px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow); }
 .status-orbit { display: flex; align-items: center; justify-content: center; gap: 7px; width: 106px; height: 106px; border: 8px solid var(--signal-soft); border-radius: 50%; color: var(--signal); background: var(--panel); }
 .status-orbit span { font-size: 2.2rem; font-weight: 720; }
@@ -489,6 +493,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .plan-roles { justify-content: start; }
   .vault-status { grid-template-columns: 1fr; }
   .status-main { grid-row: 1; }
+  .status-main h2 { font-size: 1.65rem; }
   .status-orbit { grid-row: 2; }
   .vault-details, .action-review dl { grid-template-columns: 1fr; }
   .vault-details div, .action-review dl div { border-right: 0; border-bottom: 1px solid var(--line) !important; }

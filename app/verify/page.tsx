@@ -47,7 +47,7 @@ export default function VerifyPage() {
       <div className="verify-grid">
         <section className="verify-input">
           <label className="manifest-drop"><input type="file" accept="application/json,.json" aria-label="Choose a Baton plan file" onChange={(e) => upload(e.target.files?.[0])} /><span className="manifest-drop-button" aria-hidden="true">Choose file</span><span className="manifest-drop-copy"><strong>Open a Baton plan file</strong><small>{fileName ?? "JSON file downloaded when the plan was created"}</small></span></label>
-          <details><summary>Or paste the plan file contents</summary><textarea aria-label="Plan file contents" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} placeholder={'{\n  "version": 2,\n  "network": "Preprod"\n}'} /></details>
+          <details><summary>Or paste the plan file contents</summary><textarea aria-label="Plan file contents" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} placeholder={'{\n  "version": 3,\n  "network": "Preprod"\n}'} /></details>
           <button className="button primary" onClick={() => verify()} disabled={busy || !text}>{busy ? "Checking Cardano…" : "Check this plan"}</button>
         </section>
         <section className="verify-results" aria-live="polite" aria-busy={busy}>

@@ -12,7 +12,13 @@ import {
   type VaultManifest,
 } from "@/lib/manifest";
 import type { PlanRole } from "@/lib/plan-discovery";
-import { formatAda, formatUtc, shortHash, vaultStatus } from "@/lib/product";
+import {
+  formatAda,
+  formatUtc,
+  nextCheckInAt,
+  shortHash,
+  vaultStatus,
+} from "@/lib/product";
 import type { VaultLifecycle } from "@/lib/vault-state";
 import type { Assets, UTxO } from "@lucid-evolution/lucid";
 
@@ -273,6 +279,9 @@ export default function PlansPage() {
           const status = active
             ? vaultStatus(clock, active.lastCheckInAtMs, plan.manifest.checkInPeriodMs, plan.manifest.missesToRelease)
             : null;
+          const nextCheckIn = active
+            ? nextCheckInAt(active.lastCheckInAtMs, plan.manifest.checkInPeriodMs)
+            : null;
           return (
             <article className={`plan-card ${status ? `plan-${status}` : ""}`} key={plan.manifest.creationTx}>
               <div className="plan-card-head">
@@ -288,12 +297,12 @@ export default function PlansPage() {
               </div>
               {plan.error ? <p className="plan-error">{plan.error}</p> : <div className="plan-facts">
                 <div><span>PROTECTED</span><strong>{active ? formatAda(active.utxo.assets.lovelace ?? 0n) : "Plan complete"}</strong></div>
-                <div><span>CHECK-IN SCHEDULE</span><strong>Every {plan.manifest.checkInPeriodMs / 86_400_000} days · {plan.manifest.missesToRelease} misses</strong></div>
+                <div><span>NEXT CHECK-IN</span><strong>{nextCheckIn ? formatUtc(nextCheckIn) : "No more check-ins"}</strong></div>
                 <div><span>HANDOFF</span><strong>{active ? formatUtc(active.releaseAtMs) : "Completed on Cardano"}</strong></div>
                 <div><span>RECEIVING METHOD</span><strong>{plan.manifest.releaseMode === "fixed" ? "Chosen address" : "Recovery token"}</strong></div>
               </div>}
               <div className="plan-card-foot">
-                <span>{plan.foundThroughWallet ? "Found through this wallet" : "Saved on this device"}</span>
+                <span>Every {plan.manifest.checkInPeriodMs / 86_400_000} days · {plan.manifest.missesToRelease} miss{plan.manifest.missesToRelease === 1 ? "" : "es"} allowed · {plan.foundThroughWallet ? "Found through this wallet" : "Saved on this device"}</span>
                 <Link className="button secondary" href={`/vault/${plan.manifest.creationTx}`}>Open plan</Link>
               </div>
             </article>
