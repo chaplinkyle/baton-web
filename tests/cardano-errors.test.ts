@@ -96,6 +96,18 @@ test("wallet funding failures become actionable Preprod guidance", () => {
   assert.doesNotMatch(message, /\{ Complete|required assets: \{/i);
 });
 
+test("an empty wallet gets faucet guidance instead of UTxO jargon", () => {
+  const message = cardanoErrorMessage(
+    new Error("The connected wallet has no spendable UTxO."),
+  );
+
+  assert.match(message, /no spendable test ADA/i);
+  assert.match(message, /Baton wallet menu/i);
+  assert.match(message, /official Cardano faucet on Preprod/i);
+  assert.match(message, /Nothing was signed or submitted/i);
+  assert.doesNotMatch(message, /UTxO/i);
+});
+
 test("missing collateral explains the safe wallet preparation step", () => {
   const message = cardanoErrorMessage(new Error("No collateral found in wallet"));
 

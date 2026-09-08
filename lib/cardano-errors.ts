@@ -86,6 +86,14 @@ export function cardanoErrorMessage(
   }
 
   if (
+    normalized.includes("no spendable utxo") ||
+    normalized.includes("no spendable output") ||
+    normalized.includes("wallet has no utxo")
+  ) {
+    return "This Eternl account has no spendable test ADA yet. Copy its address from the Baton wallet menu, fund it with the official Cardano faucet on Preprod, wait for confirmation, and try again. Nothing was signed or submitted.";
+  }
+
+  if (
     normalized.includes("does not have enough funds") ||
     normalized.includes("not enough funds") ||
     normalized.includes("insufficient funds") ||
