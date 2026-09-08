@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
-import { CARDANO_NETWORK } from "@/lib/config";
+import { CARDANO_NETWORK, CARDANO_TESTNET_FAUCET_URL } from "@/lib/config";
 import {
   cardanoBrowseUri,
   isExactWalletNetwork,
@@ -272,6 +272,19 @@ export function WalletButton() {
                   Disconnect Baton
                 </button>
               </div>
+              {CARDANO_NETWORK !== "Mainnet" && (
+                <p className="wallet-faucet">
+                  Need test ADA? Copy this address, then use the{" "}
+                  <a
+                    href={CARDANO_TESTNET_FAUCET_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    official Cardano faucet
+                  </a>{" "}
+                  and choose {CARDANO_NETWORK}.
+                </p>
+              )}
             </>
           ) : wallet.connectionActivity === "requesting" ? (
             <>

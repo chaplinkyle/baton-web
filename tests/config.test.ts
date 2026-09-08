@@ -3,6 +3,7 @@ import test from "node:test";
 import { getAddressDetails } from "@lucid-evolution/lucid";
 import {
   CARDANO_NETWORK,
+  CARDANO_TESTNET_FAUCET_URL,
   PINNED_PREPROD_TREASURY_ADDRESS,
   runtimeReadiness,
   TREASURY_ADDRESS,
@@ -19,4 +20,11 @@ test("the official Preprod treasury is pinned and valid", () => {
   assert.equal(details.networkId, 0);
   assert.equal(details.paymentCredential?.type, "Key");
   assert.equal(runtimeReadiness.canCreate, true);
+});
+
+test("the tester funding link uses Cardano's official faucet", () => {
+  assert.equal(
+    CARDANO_TESTNET_FAUCET_URL,
+    "https://docs.cardano.org/cardano-testnets/tools/faucet",
+  );
 });

@@ -79,6 +79,9 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-connected-actions button:last-child { grid-column: 1 / -1; }
 .wallet-panel-actions button, .wallet-panel-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: transparent; font-size: .76rem; font-weight: 650; cursor: pointer; }
 .wallet-panel-actions button:first-child, .wallet-panel-actions a:first-child { border-color: var(--signal-2); color: var(--signal); background: var(--signal-soft); }
+.wallet-panel .wallet-faucet { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: .75rem; line-height: 1.55; }
+.wallet-faucet a { color: var(--signal); text-decoration: underline; text-decoration-color: var(--signal-2); text-underline-offset: 3px; }
+.wallet-faucet a:hover { text-decoration-color: currentColor; }
 .wallet-pending-note { margin-top: 18px; padding: 11px 12px; border: 1px solid var(--signal-2); border-radius: 7px; color: var(--signal); background: var(--signal-soft); font-size: .76rem; font-weight: 650; text-align: center; }
 
 .hero { display: grid; grid-template-columns: 1.08fr .92fr; gap: 48px; align-items: center; min-height: 0; padding-block: var(--section-space); }

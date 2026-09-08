@@ -54,6 +54,8 @@ export const EXPLORER_URL =
     : CARDANO_NETWORK === "Preview"
       ? "https://preview.cardanoscan.io"
       : "https://preprod.cardanoscan.io";
+export const CARDANO_TESTNET_FAUCET_URL =
+  "https://docs.cardano.org/cardano-testnets/tools/faucet";
 
 export const RECEIPT_NAME = BATON_RECEIPT_NAMES.active;
 export const TERMINAL_RECEIPT_NAME = BATON_RECEIPT_NAMES.complete;
