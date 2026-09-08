@@ -234,6 +234,10 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .asset-list label { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; padding: 11px 13px; border-bottom: 1px solid var(--line); font-size: .76rem; cursor: pointer; }
 .asset-list label:last-child { border: 0; }
 .asset-list strong { color: var(--signal); }
+.asset-read-state { display: flex; min-height: 74px; align-items: flex-start; justify-content: center; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--base); }
+.asset-read-state strong { font-size: .82rem; }
+.asset-read-state span { color: var(--muted); font-size: .76rem; }
+.asset-read-state .button { min-height: 36px; margin-top: 8px; padding: 8px 13px; }
 .file-commit { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; margin-top: 28px; padding: 18px; border: 1px dashed var(--signal-2); border-radius: 10px; background: var(--base); cursor: pointer; }
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .file-picker-action { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 13px; border: 1px solid var(--signal-2); border-radius: 7px; color: var(--signal); background: var(--signal-soft); font-size: .76rem; font-weight: 650; }

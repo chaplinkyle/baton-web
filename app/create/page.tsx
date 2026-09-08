@@ -45,7 +45,12 @@ type ReleaseMode = "fixed" | "bearer";
 type WalletAsset = { unit: string; quantity: bigint };
 type WalletAssetResult = {
   connection: EternlConnection;
+  status: "ready" | "error";
   assets: WalletAsset[];
+};
+type WalletAssetSelection = {
+  connection: EternlConnection;
+  units: string[];
 };
 
 export default function CreateVault() {
@@ -83,7 +88,9 @@ export default function CreateVault() {
   const [commitment, setCommitment] = useState("");
   const [walletAssetResult, setWalletAssetResult] =
     useState<WalletAssetResult | null>(null);
-  const [protectedTokenUnits, setProtectedTokenUnits] = useState<string[]>([]);
+  const [walletAssetSelection, setWalletAssetSelection] =
+    useState<WalletAssetSelection | null>(null);
+  const [walletAssetReload, setWalletAssetReload] = useState(0);
   const [review, setReview] = useState<CreationReview | null>(null);
   const [reviewKey, setReviewKey] = useState("");
   const [reviewConnection, setReviewConnection] =
@@ -142,22 +149,38 @@ export default function CreateVault() {
       if (!cancelled) {
         setWalletAssetResult({
           connection,
+          status: "ready",
           assets: [...totals].map(([unit, quantity]) => ({ unit, quantity })),
         });
       }
     }).catch(() => {
-      if (!cancelled) setWalletAssetResult({ connection, assets: [] });
+      if (!cancelled) {
+        setWalletAssetResult({ connection, status: "error", assets: [] });
+      }
     });
     return () => { cancelled = true; };
-  }, [wallet.connection]);
+  }, [wallet.connection, walletAssetReload]);
 
-  const walletAssets = useMemo(
-    () => reviewForWalletSession(
-      walletAssetResult?.assets ?? null,
+  const currentWalletAssetResult = useMemo(
+    () => walletReady ? reviewForWalletSession(
+      walletAssetResult,
       walletAssetResult?.connection ?? null,
       wallet.connection,
+    ) : null,
+    [wallet.connection, walletAssetResult, walletReady],
+  );
+  const walletAssets = useMemo(
+    () => currentWalletAssetResult?.assets ?? [],
+    [currentWalletAssetResult],
+  );
+  const walletAssetsLoading = walletReady && currentWalletAssetResult === null;
+  const protectedTokenUnits = useMemo(
+    () => reviewForWalletSession(
+      walletAssetSelection?.units ?? null,
+      walletAssetSelection?.connection ?? null,
+      wallet.connection,
     ) ?? [],
-    [wallet.connection, walletAssetResult],
+    [wallet.connection, walletAssetSelection],
   );
 
   const periodMs = periodDays * DAY_MS;
@@ -200,6 +223,7 @@ export default function CreateVault() {
   const activeReview = reviewKey === configurationKey && walletReady
     ? reviewForWalletSession(review, reviewConnection, wallet.connection)
     : null;
+  const displayedReleaseAt = activeReview?.releaseAt ?? expectedRelease;
   const protectValues = {
     connected: walletReady,
     ownerPaymentKeyHashes: walletReady
@@ -356,12 +380,23 @@ export default function CreateVault() {
   }
 
   function toggleProtected(unit: string) {
+    const connection = wallet.connection;
+    if (!connection) return;
     invalidateReview();
-    setProtectedTokenUnits((current) =>
-      current.includes(unit)
-        ? current.filter((candidate) => candidate !== unit)
-        : [...current, unit],
-    );
+    setWalletAssetSelection((current) => {
+      const units = current?.connection === connection ? current.units : [];
+      return {
+        connection,
+        units: units.includes(unit)
+          ? units.filter((candidate) => candidate !== unit)
+          : [...units, unit],
+      };
+    });
+  }
+
+  function retryWalletAssets() {
+    setWalletAssetResult(null);
+    setWalletAssetReload((current) => current + 1);
   }
 
   function walletConnectionTitle() {
@@ -458,7 +493,41 @@ export default function CreateVault() {
                 </div>
               </div>
 
-              {walletAssets.length > 0 && <div className="asset-picker"><div><h3>Tokens and NFTs</h3><p>Select any other Cardano assets you want to protect.</p></div><div className="asset-list">{walletAssets.map((asset) => <label key={asset.unit}><input type="checkbox" checked={protectedTokenUnits.includes(asset.unit)} onChange={() => toggleProtected(asset.unit)} /><span className="mono">{shortHash(asset.unit, 10)}</span><strong>{asset.quantity.toString()}</strong></label>)}</div></div>}
+              {walletReady && (
+                <div className="asset-picker">
+                  <div>
+                    <h3>Tokens and NFTs</h3>
+                    <p>Select any other Cardano assets you want to protect.</p>
+                  </div>
+                  {walletAssetsLoading ? (
+                    <div className="asset-read-state" role="status">
+                      <strong>Reading this Eternl account…</strong>
+                      <span>Your ADA amount is already available above.</span>
+                    </div>
+                  ) : currentWalletAssetResult?.status === "error" ? (
+                    <div className="asset-read-state" role="status">
+                      <strong>Tokens and NFTs could not be read.</strong>
+                      <span>You can continue with ADA or try reading this account again.</span>
+                      <button type="button" className="button secondary" onClick={retryWalletAssets}>Try again</button>
+                    </div>
+                  ) : walletAssets.length > 0 ? (
+                    <div className="asset-list">
+                      {walletAssets.map((asset) => (
+                        <label key={asset.unit}>
+                          <input type="checkbox" checked={protectedTokenUnits.includes(asset.unit)} onChange={() => toggleProtected(asset.unit)} />
+                          <span className="mono">{shortHash(asset.unit, 10)}</span>
+                          <strong>{asset.quantity.toString()}</strong>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="asset-read-state" role="status">
+                      <strong>No tokens or NFTs found.</strong>
+                      <span>This Eternl account can still protect ADA.</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <label className="file-commit"><input className="visually-hidden" type="file" onChange={(event) => hashFile(event.target.files?.[0])} /><span className="file-picker-action">{commitment ? "Choose another file" : "Choose a file"}</span><span><strong>Add proof of a file (optional)</strong><small>The file never leaves your device. Only a fingerprint is recorded so someone can later prove that an unchanged copy existed. This plan does not store or deliver the file.</small></span>{commitment && <code aria-live="polite">{shortHash(commitment, 12)}</code>}</label>
               <div className="form-actions"><span /><button className="button primary" disabled={wallet.revalidating} onClick={() => goToStep(2)}>Choose who can receive it</button></div>
@@ -489,7 +558,7 @@ export default function CreateVault() {
                 <div><span>PROTECTED NOW</span><strong>{ada || "0"} ADA + {protectedTokenUnits.length} native asset{protectedTokenUnits.length === 1 ? "" : "s"}</strong></div>
                 <div><span>CHECK-IN PERIOD</span><strong>{formatCheckInPeriod(periodMs)}</strong></div>
                 <div><span>ALLOWED MISSES</span><strong>{misses}</strong></div>
-                <div><span>EXPECTED HANDOFF DATE IF CREATED NOW</span><strong>{formatUtc(expectedRelease)}</strong></div>
+                <div><span>{activeReview ? "HANDOFF AVAILABLE AFTER" : "EXPECTED HANDOFF DATE IF CREATED NOW"}</span><strong>{formatUtc(displayedReleaseAt)}</strong></div>
                 <div><span>WHO CAN RECEIVE</span><strong>{releaseMode === "bearer" ? "Holder of the recovery token" : shortHash(destination || "Not entered", 12)}</strong></div>
                 <div><span>ONE-TIME SITE FEE</span><strong>{formatAda(SITE_FEE_LOVELACE)}</strong></div>
                 <div><span>LATER SITE FEES</span><strong>None</strong></div>
