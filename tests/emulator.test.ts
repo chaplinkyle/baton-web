@@ -270,6 +270,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     assertTransactionBudget(pulseReview, `pulse ${expectedSequence}`);
     assertActionReviewIntegrity(pulseReview, `pulse ${expectedSequence}`);
     assert.equal(pulseReview.protectedValueEffect, "preserved");
+    assert.equal(pulseReview.receivingAddress, undefined);
     assert.equal(pulseReview.currentMissedCount, expectedSequence === 1 ? 2 : 0);
     assert.equal(pulseReview.validTo, pulseReview.newCheckInAt);
     assert.equal(
@@ -294,6 +295,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
   assertTransactionBudget(closeReview, "owner close");
   assertActionReviewIntegrity(closeReview, "owner close");
   assert.equal(closeReview.protectedValueEffect, "released");
+  assert.equal(closeReview.receivingAddress, owner.address);
   await vaultState.signAndSubmitAction(closeReview);
   emulator.awaitBlock(1);
   assert.equal(await emulator.getUtxoByUnit(liveManifest.receiptUnit), undefined);
@@ -362,6 +364,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
   assertTransactionBudget(fixedRelease, "fixed release");
   assertActionReviewIntegrity(fixedRelease, "fixed release");
   assert.equal(fixedRelease.protectedValueEffect, "released");
+  assert.equal(fixedRelease.receivingAddress, beneficiary.address);
   await vaultState.signAndSubmitAction(fixedRelease);
   emulator.awaitBlock(1);
   assert.equal(await emulator.getUtxoByUnit(fixedManifest.receiptUnit), undefined);
@@ -424,6 +427,7 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
   assertTransactionBudget(bearerRelease, "bearer release");
   assertActionReviewIntegrity(bearerRelease, "bearer release");
   assert.equal(bearerRelease.protectedValueEffect, "released");
+  assert.equal(bearerRelease.receivingAddress, recoveryHolder.address);
   await vaultState.signAndSubmitAction(bearerRelease);
   emulator.awaitBlock(1);
   assert.equal(await emulator.getUtxoByUnit(bearerManifest.receiptUnit), undefined);

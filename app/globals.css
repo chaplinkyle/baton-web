@@ -356,6 +356,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .action-review dl div:nth-last-child(-n+2) { border-bottom: 0; }
 .action-review dt { color: var(--dim); font-family: inherit; font-size: .67rem; }
 .action-review dd { margin: 5px 0 0; font-size: .86rem; }
+.action-review dd.mono { overflow-wrap: anywhere; user-select: all; }
 .action-review-note { margin: 16px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.55; }
 .history-panel { margin-top: 22px; padding: 27px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 .history-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; }

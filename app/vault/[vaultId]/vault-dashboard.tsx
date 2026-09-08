@@ -414,13 +414,6 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       ? `${CARDANO_NETWORK} verified`
       : `Cardano testnet connected · confirm ${CARDANO_NETWORK} in Eternl`
     : null;
-  const reviewDestination = activeReview?.action === "close"
-    ? "Connected owner account"
-    : activeReview?.action === "release"
-      ? manifest?.releaseMode === "fixed" && manifest.destination
-        ? `Chosen address · ${shortHash(manifest.destination, 12)}`
-        : "Connected recovery-token account"
-      : null;
   const planTime = (timestamp: number) => (
     <time className="time-pair" dateTime={new Date(timestamp).toISOString()}>
       <strong>{formatLocal(timestamp, localTimeZone ?? "UTC")}</strong>
@@ -481,15 +474,15 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
               <p>{wallet.revalidating ? "Wallet actions are paused until Baton confirms the selected Preprod account." : "Baton is confirming what this wallet can do without submitting a transaction."}</p>
             </div> : status === "claimable" && manifest.releaseMode === "fixed" ? <>
               <div className="action-role">Fixed receiving address</div>
-              <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Complete the handoff<span>The complete protected value can only go to the chosen address</span></button>
+              <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Review the handoff<span>Prepare an unsigned transaction to the permanent chosen address</span></button>
             </> : walletRoleError ? <div className="action-guidance action-guidance-error" role="alert">
               <strong>Wallet role could not be confirmed</strong>
               <p>{walletRoleError}</p>
             </div> : <>
               {connectedRole && <div className="action-role">{connectedRole}</div>}
-              {canPulse && <button className="action-primary" onClick={() => prepare("pulse")} disabled={busy}>Check in with Eternl<span>No site fee · normal Cardano network fee applies</span></button>}
-              {canClose && <button className="action-secondary" onClick={() => prepare("close")} disabled={busy}>Cancel this plan<span>Returns the complete protected value to the owner wallet</span></button>}
-              {canRelease && <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Complete the handoff<span>The recovery token and complete protected value will arrive together</span></button>}
+              {canPulse && <button className="action-primary" onClick={() => prepare("pulse")} disabled={busy}>Review check-in<span>Prepare an unsigned check-in · no site fee</span></button>}
+              {canClose && <button className="action-secondary" onClick={() => prepare("close")} disabled={busy}>Review cancellation<span>Prepare an unsigned return of the complete protected value</span></button>}
+              {canRelease && <button className="action-release" onClick={() => prepare("release")} disabled={busy}>Review the handoff<span>Prepare an unsigned transfer of the recovery token and complete protected value</span></button>}
               {!canPulse && !canClose && !canRelease && <div className="action-guidance">
                 <strong>{walletRoles.includes("recovery holder")
                   ? "The recovery token is ready"
@@ -512,13 +505,13 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
           <div>
             <p className="eyebrow">REVIEW BEFORE APPROVING</p>
             <h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2>
-            <p className="action-review-intro">Confirm these details before Eternl asks for your signature. Nothing is submitted until you approve it there.</p>
+            <p className="action-review-intro">This is an unsigned transaction. Confirm every detail below. Eternl opens only when you choose to approve and submit it.</p>
           </div>
           <dl>
-            <div><dt>Connected Eternl account</dt><dd className="mono">{shortHash(reviewConnection.address, 12)}</dd></div>
+            <div><dt>Connected Eternl account</dt><dd className="mono">{reviewConnection.address}</dd></div>
             <div><dt>Cardano network</dt><dd>{reviewNetwork}</dd></div>
             <div><dt>Transaction valid until</dt><dd>{formatUtc(activeReview.validTo)}</dd></div>
-            <div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div>
+            <div><dt>Transaction ID</dt><dd className="mono">{activeReview.transactionHash}</dd></div>
             <div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div>
             <div><dt>Baton site fee</dt><dd>{formatAda(activeReview.siteFeeLovelace)}</dd></div>
             <div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div>
@@ -532,14 +525,14 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
               <div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt!)}</dd></div>
             </> : <>
               <div><dt>Protected value</dt><dd>Complete balance leaves the plan</dd></div>
-              <div><dt>Receiving account</dt><dd>{reviewDestination}</dd></div>
+              <div><dt>Receiving address</dt><dd className="mono">{activeReview.receivingAddress}</dd></div>
               <div><dt>Handoff boundary</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div>
             </>}
           </dl>
-          <p className="action-review-note">Eternl will show its own transaction confirmation next. Compare the network and fee there before signing.</p>
+          <p className="action-review-note">Eternl will ask you to approve this exact transaction next. Compare the network and fee there—and the receiving address whenever value leaves the plan—before signing.</p>
           <div className="form-actions">
             <button className="button secondary" onClick={() => { setReview(null); setReviewConnection(null); }}>Go back</button>
-            <button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button>
+            <button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for Eternl…" : "Approve and submit in Eternl"}</button>
           </div>
         </section>}
 

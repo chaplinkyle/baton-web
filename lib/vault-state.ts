@@ -289,6 +289,7 @@ export type ActionReview = {
   newReleaseAt?: number;
   newCheckInAt?: number;
   requiredSignerKeyHash?: string;
+  receivingAddress?: string;
 };
 
 /**
@@ -315,6 +316,7 @@ function completedReview(
     "validTo" | "currentMissedCount" | "newReleaseAt" | "newCheckInAt"
   >,
   requiredSignerKeyHash?: string,
+  receivingAddress?: string,
 ): ActionReview {
   return {
     action,
@@ -327,6 +329,7 @@ function completedReview(
     transactionHash: draft.toHash(),
     transactionBytes: draft.toCBOR({ canonical: true }).length / 2,
     requiredSignerKeyHash,
+    receivingAddress,
   };
 }
 
@@ -452,6 +455,7 @@ export async function buildClose(
     state.releaseAtMs,
     { validTo },
     manifest.ownerKeyHash,
+    walletAddress,
   );
 }
 
@@ -519,6 +523,7 @@ export async function buildRelease(
     state.releaseAtMs,
     { validTo },
     executorCredential.hash,
+    payoutAddress,
   );
 }
 
