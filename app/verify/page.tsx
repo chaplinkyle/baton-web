@@ -11,6 +11,7 @@ export default function VerifyPage() {
   const [text, setText] = useState("");
   const [manifest, setManifest] = useState<VaultManifest | null>(null);
   const [lifecycle, setLifecycle] = useState<VaultLifecycle | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,6 +33,7 @@ export default function VerifyPage() {
 
   async function upload(file: File | undefined) {
     if (!file) return;
+    setFileName(file.name);
     const raw = await file.text(); setText(raw); await verify(raw);
   }
 
@@ -44,7 +46,7 @@ export default function VerifyPage() {
       </header>
       <div className="verify-grid">
         <section className="verify-input">
-          <label className="manifest-drop"><input type="file" accept="application/json,.json" onChange={(e) => upload(e.target.files?.[0])} /><span><strong>Choose your plan file</strong><small>JSON file downloaded when the plan was created</small></span></label>
+          <label className="manifest-drop"><input type="file" accept="application/json,.json" aria-label="Choose a Baton plan file" onChange={(e) => upload(e.target.files?.[0])} /><span className="manifest-drop-button" aria-hidden="true">Choose file</span><span className="manifest-drop-copy"><strong>Open a Baton plan file</strong><small>{fileName ?? "JSON file downloaded when the plan was created"}</small></span></label>
           <details><summary>Or paste the plan file contents</summary><textarea aria-label="Plan file contents" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} placeholder={'{\n  "version": 2,\n  "network": "Preprod"\n}'} /></details>
           <button className="button primary" onClick={() => verify()} disabled={busy || !text}>{busy ? "Checking Cardano…" : "Check this plan"}</button>
         </section>

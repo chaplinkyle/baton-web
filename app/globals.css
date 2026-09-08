@@ -269,10 +269,12 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .success-actions { display: flex; gap: 12px; margin-top: 23px; }
 
 .vault-title { display: flex; justify-content: space-between; align-items: end; gap: 30px; padding-bottom: 43px; }
-.manifest-drop { display: flex; align-items: center; gap: 20px; min-height: 120px; padding: 24px; border: 1px dashed var(--signal-2); border-radius: 8px; background: var(--panel); cursor: pointer; }
-.manifest-drop input { max-width: 215px; }
-.manifest-drop span { display: grid; }
-.manifest-drop small { color: var(--muted); }
+.manifest-drop { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 20px; min-height: 120px; padding: 24px; border: 1px dashed var(--signal-2); border-radius: 8px; background: var(--panel); cursor: pointer; }
+.manifest-drop:hover { border-color: var(--signal); background: var(--signal-soft); }
+.manifest-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.manifest-drop-button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 15px; border: 1px solid var(--signal-2); border-radius: 7px; color: var(--signal); background: var(--signal-soft); font-size: .8rem; font-weight: 700; }
+.manifest-drop-copy { display: grid; min-width: 0; }
+.manifest-drop-copy small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
 .vault-status { display: grid; grid-template-columns: 140px 1fr 250px; gap: 28px; align-items: center; padding: 27px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow); }
 .status-orbit { display: flex; align-items: center; justify-content: center; gap: 7px; width: 106px; height: 106px; border: 8px solid var(--signal-soft); border-radius: 50%; color: var(--signal); background: var(--panel); }
 .status-orbit span { font-size: 2.2rem; font-weight: 720; }
@@ -513,7 +515,6 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .hero-copy, .timeline-head > div, .form-heading > div, .connection-card > div, .verify-grid > *, .legal-document, .add-plan-controls { min-width: 0; }
 .verify-input { grid-template-columns: minmax(0, 1fr); }
 .manifest-drop > * { min-width: 0; }
-.manifest-drop input { width: 100%; }
 .page-title > p:last-child { margin: 16px 0 0; }
 .hero-lede { max-width: 58ch; }
 .trust-row { gap: 8px 20px; color: var(--muted); font-size: .8125rem; }
@@ -574,8 +575,9 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .signal-origin::before, .signal-cell::before { grid-row: span 2; margin: 5px 0 0; }
   .signal-origin small, .signal-cell small { grid-column: 2; }
   .timeline-note { margin-top: 16px; }
-  .connection-card, .manifest-drop { align-items: stretch; flex-direction: column; gap: 16px; }
-  .manifest-drop input { max-width: 100%; }
+  .connection-card { align-items: stretch; flex-direction: column; gap: 16px; }
+  .manifest-drop { grid-template-columns: 1fr; align-items: stretch; gap: 16px; }
+  .manifest-drop-button { width: 100%; }
   .mode-selector button { min-height: 0; padding: 20px; }
   .mode-selector strong { margin-top: 16px; }
   .wizard-nav > button { font-size: .8125rem; }

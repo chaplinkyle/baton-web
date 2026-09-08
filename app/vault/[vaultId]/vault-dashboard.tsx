@@ -56,6 +56,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [submissionConfirmed, setSubmissionConfirmed] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const [walletRoleResult, setWalletRoleResult] = useState<WalletRoleResult | null>(null);
   const refreshVersionRef = useRef(0);
@@ -157,6 +158,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
 
   async function importFile(file: File | undefined) {
     if (!file) return;
+    setFileName(file.name);
     try {
       const parsed = parseManifest(await file.text());
       storeManifest(parsed);
@@ -270,12 +272,12 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   return (
     <div className="page-shell vault-shell">
       <header className="page-title vault-title">
-        <div><p className="eyebrow">YOUR HANDOFF PLAN · {shortHash(vaultId, 6).toUpperCase()}</p><h1>{loading ? "Checking Cardano…" : completed ? "This plan is complete" : statusLabels[status]}</h1></div>
+        <div><p className="eyebrow">YOUR HANDOFF PLAN · {shortHash(vaultId, 6).toUpperCase()}</p><h1>{loading ? "Checking Cardano…" : !manifest ? "Open your Baton plan" : completed ? "This plan is complete" : statusLabels[status]}</h1></div>
         {manifest && <button className="button secondary" onClick={() => downloadManifest(manifest)}>Download plan file</button>}
       </header>
 
       {error && <div className="error-banner">{error}</div>}
-      {!manifest && <label className="manifest-drop"><input type="file" accept="application/json,.json" onChange={(e) => importFile(e.target.files?.[0])} /><span><strong>Choose your saved plan file</strong><small>It contains no seed phrase or private key.</small></span></label>}
+      {!manifest && <label className="manifest-drop"><input type="file" accept="application/json,.json" aria-label="Choose a saved Baton plan file" onChange={(e) => importFile(e.target.files?.[0])} /><span className="manifest-drop-button" aria-hidden="true">Choose file</span><span className="manifest-drop-copy"><strong>Open your saved plan file</strong><small>{fileName ?? "It contains no seed phrase or private key."}</small></span></label>}
 
       {manifest && completed && <section className="success-box"><span>COMPLETION CONFIRMED ON CARDANO</span><h3>This handoff plan has ended.</h3><p>The active receipt was permanently retired. The completion receipt and final assets are at <span className="mono">{shortHash(completed.utxo.address, 16)}</span>.</p>{submitted && <a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a>}</section>}
 
