@@ -253,6 +253,40 @@ test("wallet discovery searches the history of every account payment credential"
   }
 });
 
+test("wallet discovery reuses an existing UTxO request", async () => {
+  const originalFetch = globalThis.fetch;
+  let additionalWalletReads = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("tx_by_metalabel")) return Response.json([]);
+    if (url.endsWith("/credential_txs")) return Response.json([]);
+    return Response.json({ error: "unexpected test request" }, { status: 500 });
+  };
+  const lucid = {
+    wallet: () => ({
+      getUtxos: async () => {
+        additionalWalletReads += 1;
+        return [];
+      },
+    }),
+  } as unknown as LucidEvolution;
+
+  try {
+    const existingWalletRead = Promise.resolve([]);
+    assert.deepEqual(
+      await discoverWalletManifests(
+        lucid,
+        ownerKeyHash,
+        { walletUtxos: existingWalletRead },
+      ),
+      [],
+    );
+    assert.equal(additionalWalletReads, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("wallet discovery retries a temporary Koios rate limit", async () => {
   const originalFetch = globalThis.fetch;
   let metadataCalls = 0;

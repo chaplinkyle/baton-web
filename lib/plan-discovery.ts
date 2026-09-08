@@ -668,9 +668,14 @@ export function combineWalletAssets(utxos: UTxO[]) {
   }, {});
 }
 
+/**
+ * Discover plans related to a wallet. A caller that also needs the wallet's
+ * assets can share its in-flight UTxO read so Eternl is queried only once.
+ */
 export async function discoverWalletManifests(
   lucid: LucidEvolution,
   paymentKeyHashes: string | readonly string[],
+  options: { walletUtxos?: Promise<UTxO[]> } = {},
 ) {
   const walletCredentials = [...new Set(
     typeof paymentKeyHashes === "string"
@@ -678,7 +683,7 @@ export async function discoverWalletManifests(
       : paymentKeyHashes,
   )];
   const [walletUtxos, metadataResponse, credentialResponse] = await Promise.all([
-    lucid.wallet().getUtxos(),
+    options.walletUtxos ?? lucid.wallet().getUtxos(),
     fetchKoiosRead(
       () => fetch(`${KOIOS_URL}/tx_by_metalabel?_label=${BATON_DISCOVERY_LABEL}`, {
         headers: { Range: "0-999" },

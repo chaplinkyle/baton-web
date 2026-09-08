@@ -29,7 +29,7 @@ import {
   vaultStatus,
 } from "@/lib/product";
 import type { VaultLifecycle } from "@/lib/vault-state";
-import type { Assets, UTxO } from "@lucid-evolution/lucid";
+import type { Assets } from "@lucid-evolution/lucid";
 
 type LoadedPlan = {
   manifest: VaultManifest;
@@ -56,15 +56,6 @@ const statusLabels = {
   missed: "Check-in missed",
   claimable: "Handoff available",
 };
-
-function combineAssets(utxos: UTxO[]) {
-  return utxos.reduce<Assets>((all, utxo) => {
-    for (const [unit, quantity] of Object.entries(utxo.assets)) {
-      all[unit] = (all[unit] ?? 0n) + quantity;
-    }
-    return all;
-  }, {});
-}
 
 export default function PlansPage() {
   const wallet = useWallet();
@@ -124,7 +115,7 @@ export default function PlansPage() {
     const isCurrent = () => refreshVersionRef.current === refreshVersion;
     const browserGlobals = globalThis as typeof globalThis & { Buffer?: typeof Buffer };
     browserGlobals.Buffer ??= Buffer;
-    const [{ discoverWalletManifests, rolesForManifest }, { readOnlyLucid, readVaultLifecycle }] =
+    const [{ combineWalletAssets, discoverWalletManifests, rolesForManifest }, { readOnlyLucid, readVaultLifecycle }] =
       await Promise.all([import("@/lib/plan-discovery"), import("@/lib/vault-state")]);
     if (!isCurrent()) return;
     setLoading(true);
@@ -135,11 +126,16 @@ export default function PlansPage() {
     let walletAssets: Assets = {};
     if (connection) {
       try {
-        walletAssets = combineAssets(await connection.lucid.wallet().getUtxos());
-        const discovered = await discoverWalletManifests(
-          connection.lucid,
-          connection.paymentKeyHashes,
-        );
+        const walletUtxosRequest = connection.lucid.wallet().getUtxos();
+        const [walletUtxos, discovered] = await Promise.all([
+          walletUtxosRequest,
+          discoverWalletManifests(
+            connection.lucid,
+            connection.paymentKeyHashes,
+            { walletUtxos: walletUtxosRequest },
+          ),
+        ]);
+        walletAssets = combineWalletAssets(walletUtxos);
         if (!isCurrent()) return;
         for (const plan of discovered) {
           merged.set(plan.manifest.creationTx, {
