@@ -179,11 +179,15 @@ export function WalletButton() {
         {wallet.connection ? (
           <span className="status-dot" aria-hidden="true" />
         ) : (
-          <span className="wallet-glyph" aria-hidden="true">E</span>
+          <svg className="wallet-glyph" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+            <path d="M5.5 4.75h7M5.5 9h5.5M5.5 13.25h7" />
+          </svg>
         )}
         <span>{label}</span>
         {(panelOpen || wallet.connection || wallet.error || !wallet.available) && (
-          <span className="wallet-chevron" aria-hidden="true">⌄</span>
+          <svg className="wallet-chevron" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+            <path d="m3.5 5 3.5 4 3.5-4" />
+          </svg>
         )}
       </button>
 
@@ -211,7 +215,9 @@ export function WalletButton() {
                 aria-label="Close wallet details"
                 onClick={() => closePanel(true)}
               >
-                ×
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <path d="m4 4 8 8M12 4l-8 8" />
+                </svg>
               </button>
             )}
             {wallet.revalidating ? (
