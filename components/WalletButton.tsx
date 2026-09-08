@@ -60,16 +60,27 @@ export function WalletButton() {
   useEffect(() => {
     if (!panelOpen || !mobileSheet) return;
     const background = Array.from(document.querySelectorAll<HTMLElement>(
-      "main, .site-footer, .site-header .brand, .site-header nav",
+      "main, .site-footer, .site-header nav",
     ));
     const previous = background.map((element) => element.inert);
+    const brand = document.querySelector<HTMLElement>(".site-header .brand");
+    const previousBrandTabIndex = brand?.getAttribute("tabindex") ?? null;
+    const previousBrandAriaHidden = brand?.getAttribute("aria-hidden") ?? null;
     background.forEach((element) => { element.inert = true; });
+    brand?.setAttribute("tabindex", "-1");
+    brand?.setAttribute("aria-hidden", "true");
     const focusFrame = window.requestAnimationFrame(() => {
       (closeButtonRef.current ?? panelRef.current)?.focus();
     });
     return () => {
       window.cancelAnimationFrame(focusFrame);
       background.forEach((element, index) => { element.inert = previous[index]; });
+      if (brand) {
+        if (previousBrandTabIndex === null) brand.removeAttribute("tabindex");
+        else brand.setAttribute("tabindex", previousBrandTabIndex);
+        if (previousBrandAriaHidden === null) brand.removeAttribute("aria-hidden");
+        else brand.setAttribute("aria-hidden", previousBrandAriaHidden);
+      }
     };
   }, [mobileSheet, panelOpen]);
 
