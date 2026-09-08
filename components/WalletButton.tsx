@@ -32,6 +32,7 @@ export function WalletButton() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
   const copyResetTimer = useRef<number | null>(null);
   // A request started from Create or My Plans should be just as legible as one
   // started here. Keep the approval guidance visible until Eternl resolves the
@@ -119,6 +120,10 @@ export function WalletButton() {
       setCopyStatus("copied");
     } catch {
       setCopyStatus("failed");
+      window.requestAnimationFrame(() => {
+        addressInputRef.current?.focus({ preventScroll: true });
+        addressInputRef.current?.select();
+      });
     }
     if (copyResetTimer.current) window.clearTimeout(copyResetTimer.current);
     copyResetTimer.current = window.setTimeout(() => setCopyStatus("idle"), 1_500);
@@ -259,6 +264,24 @@ export function WalletButton() {
                   ? `Baton confirmed this account is on Cardano ${CARDANO_NETWORK}. It will search all ${wallet.connection.paymentKeyHashes.length} payment address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} exposed by this account.`
                   : `Eternl confirmed a Cardano testnet account, but this empty account cannot prove ${CARDANO_NETWORK} versus Preview yet. Transactions remain locked until Baton verifies ${CARDANO_NETWORK}.`}
               </p>
+              <label className="wallet-address-field">
+                <span>CONNECTED ADDRESS</span>
+                <input
+                  ref={addressInputRef}
+                  type="text"
+                  readOnly
+                  spellCheck={false}
+                  value={wallet.connection.address}
+                  aria-label="Connected Eternl address"
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </label>
+              {copyStatus === "failed" && (
+                <div className="wallet-copy-help" role="status">
+                  Clipboard access is unavailable here. The complete address
+                  above is selected so you can copy it manually.
+                </div>
+              )}
               <div className={`wallet-panel-actions wallet-connected-actions ${exactNetworkConfirmed ? "" : "unverified"}`}>
                 {exactNetworkConfirmed ? (
                   <button type="button" onClick={() => wallet.changeAccount()}>
@@ -273,7 +296,7 @@ export function WalletButton() {
                   {copyStatus === "copied"
                     ? "Address copied"
                     : copyStatus === "failed"
-                      ? "Copy failed"
+                      ? "Select address"
                       : "Copy address"}
                 </button>
                 {!exactNetworkConfirmed && (
