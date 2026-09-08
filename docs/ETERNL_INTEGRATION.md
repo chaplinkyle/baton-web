@@ -260,6 +260,13 @@ returned a signature or transaction ID.
 
 ## Security tests
 
+`tests/wallet-connection.test.ts` exercises the complete connection handshake
+offline with deterministic Eternl and Koios doubles. It verifies the requested
+CIP-142 extension, exact Preprod network magic, address-credential collection,
+wrong-testnet rejection before account exposure, and the reusable Lucid wallet
+session returned to the interface. This complements the pure adapter tests and
+the manual extension/dApp-browser checks below without requesting a signature.
+
 - Compare decoded unsigned and final signed transaction bodies; only the witness
   set may be added by the wallet.
 - Reject a witness that does not authorize the configured liveness credential.
