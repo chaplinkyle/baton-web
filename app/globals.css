@@ -323,11 +323,14 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .action-guidance-error { border-color: var(--danger); background: var(--danger-soft); }
 .action-review { margin-top: 22px; padding: 27px; border: 1px solid var(--signal-2); border-radius: 8px; background: var(--panel); }
 .action-review h2 { margin: 0; font-size: 2rem; }
+.action-review-intro { max-width: 66ch; margin: 10px 0 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
 .action-review dl { display: grid; grid-template-columns: 1fr 1fr; margin: 24px 0 0; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; }
 .action-review dl div { padding: 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .action-review dl div:nth-child(even) { border-right: 0; }
+.action-review dl div:nth-last-child(-n+2) { border-bottom: 0; }
 .action-review dt { color: var(--dim); font-family: inherit; font-size: .67rem; }
 .action-review dd { margin: 5px 0 0; font-size: .86rem; }
+.action-review-note { margin: 16px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.55; }
 
 .plans-shell { padding-block: var(--section-space); }
 .plans-title { display: flex; align-items: end; justify-content: space-between; gap: 35px; padding-bottom: 38px; }
@@ -509,6 +512,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .status-orbit { grid-row: 2; justify-self: center; }
   .vault-details, .action-review dl { grid-template-columns: 1fr; }
   .vault-details div, .action-review dl div { border-right: 0; border-bottom: 1px solid var(--line) !important; }
+  .action-review dl div:last-child { border-bottom: 0 !important; }
   .verify-input, .verify-results { padding: 20px 16px; }
   .stage-list, .plain-example, .role-table { grid-template-columns: 1fr; }
   .stage-list article { min-height: 250px; }

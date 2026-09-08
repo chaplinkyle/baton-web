@@ -54,6 +54,19 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     assert.ok(review.transactionBytes < 16_384, `${label} exceeds the 16 KiB transaction ceiling`);
     assert.ok(review.feeLovelace < 5_000_000n, `${label} network fee exceeds the local 5 ADA safety ceiling`);
   };
+  const assertActionReviewIntegrity = (
+    review: Awaited<ReturnType<typeof vaultState.buildPulse>>,
+    label: string,
+  ) => {
+    const ttl = review.draft.toTransaction().body().ttl();
+    assert.notEqual(ttl, undefined, `${label} must have a finite upper validity bound`);
+    assert.equal(
+      review.validTo,
+      lucid.slotToUnixTime(Number(ttl)),
+      `${label} review expiry must match the transaction body`,
+    );
+    assert.equal(review.siteFeeLovelace, 0n, `${label} must not add a Baton action fee`);
+  };
 
   function manifestFrom(
     creationTx: string,
@@ -204,11 +217,20 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     [liveManifest.ownerKeyHash, liveManifest.livenessKeyHash],
   );
   assertTransactionBudget(alternateAddressPulse, "alternate account-address pulse");
+  assertActionReviewIntegrity(alternateAddressPulse, "alternate account-address pulse");
   await assert.rejects(
     vaultState.signAndSubmitAction(alternateAddressPulse),
     "the ledger must still reject a wallet that cannot produce the liveness signature",
   );
 
+  // Prepare the first real check-in after two elapsed periods so the review
+  // must report the actual missed count and the confirmed transaction must
+  // reset it without changing the protected bundle.
+  emulator.awaitSlot(
+    Math.ceil(
+      (createdState.lastCheckInAtMs + periodMs * 2 - emulator.now()) / 1_000,
+    ) + 1,
+  );
   lucid.selectWallet.fromPrivateKey(liveness.privateKey);
   let pulsedState = createdState;
   for (let expectedSequence = 1; expectedSequence <= 5; expectedSequence += 1) {
@@ -221,6 +243,14 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     );
     const pulseTx = await vaultState.signAndSubmitAction(pulseReview);
     assertTransactionBudget(pulseReview, `pulse ${expectedSequence}`);
+    assertActionReviewIntegrity(pulseReview, `pulse ${expectedSequence}`);
+    assert.equal(pulseReview.protectedValueEffect, "preserved");
+    assert.equal(pulseReview.currentMissedCount, expectedSequence === 1 ? 2 : 0);
+    assert.equal(pulseReview.validTo, pulseReview.newCheckInAt);
+    assert.equal(
+      pulseReview.newReleaseAt,
+      pulseReview.newCheckInAt! + liveManifest.checkInPeriodMs * liveManifest.missesToRelease,
+    );
     emulator.awaitBlock(1);
     pulsedState = await vaultState.readConfirmedVault(lucid, liveManifest);
     assert.equal(pulsedState.sequence, expectedSequence);
@@ -237,6 +267,8 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     emulator.now(),
   );
   assertTransactionBudget(closeReview, "owner close");
+  assertActionReviewIntegrity(closeReview, "owner close");
+  assert.equal(closeReview.protectedValueEffect, "released");
   await vaultState.signAndSubmitAction(closeReview);
   emulator.awaitBlock(1);
   assert.equal(await emulator.getUtxoByUnit(liveManifest.receiptUnit), undefined);
@@ -302,6 +334,8 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     emulator.now(),
   );
   assertTransactionBudget(fixedRelease, "fixed release");
+  assertActionReviewIntegrity(fixedRelease, "fixed release");
+  assert.equal(fixedRelease.protectedValueEffect, "released");
   await vaultState.signAndSubmitAction(fixedRelease);
   emulator.awaitBlock(1);
   assert.equal(await emulator.getUtxoByUnit(fixedManifest.receiptUnit), undefined);
@@ -361,6 +395,8 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
     emulator.now(),
   );
   assertTransactionBudget(bearerRelease, "bearer release");
+  assertActionReviewIntegrity(bearerRelease, "bearer release");
+  assert.equal(bearerRelease.protectedValueEffect, "released");
   await vaultState.signAndSubmitAction(bearerRelease);
   emulator.awaitBlock(1);
   assert.equal(await emulator.getUtxoByUnit(bearerManifest.receiptUnit), undefined);

@@ -26,6 +26,7 @@ import { CARDANO_NETWORK, KOIOS_URL } from "./config";
 import {
   MAX_VALIDITY_WINDOW_MS,
   VALIDITY_START_BUFFER_MS,
+  missedCount,
   releaseAt,
 } from "./product";
 import {
@@ -268,7 +269,11 @@ export type ActionReview = {
   feeLovelace: bigint;
   transactionHash: string;
   transactionBytes: number;
+  validTo: number;
+  siteFeeLovelace: bigint;
+  protectedValueEffect: "preserved" | "released";
   currentReleaseAt: number;
+  currentMissedCount?: number;
   newReleaseAt?: number;
   newCheckInAt?: number;
 };
@@ -292,13 +297,18 @@ function completedReview(
   action: ActionReview["action"],
   draft: TxSignBuilder,
   currentReleaseAt: number,
-  extra: Pick<ActionReview, "newReleaseAt" | "newCheckInAt"> = {},
+  timing: Pick<
+    ActionReview,
+    "validTo" | "currentMissedCount" | "newReleaseAt" | "newCheckInAt"
+  >,
 ): ActionReview {
   return {
     action,
     draft,
     currentReleaseAt,
-    ...extra,
+    ...timing,
+    siteFeeLovelace: 0n,
+    protectedValueEffect: action === "pulse" ? "preserved" : "released",
     feeLovelace: BigInt(draft.toTransaction().body().fee().toString()),
     transactionHash: draft.toHash(),
     transactionBytes: draft.toCBOR({ canonical: true }).length / 2,
@@ -360,6 +370,13 @@ export async function buildPulse(
     .attach.SpendingValidator(contract.spendingValidator)
     .complete();
   return completedReview("pulse", draft, state.releaseAtMs, {
+    validTo: newCheckInAt,
+    currentMissedCount: missedCount(
+      nowMs,
+      state.lastCheckInAtMs,
+      manifest.checkInPeriodMs,
+      manifest.missesToRelease,
+    ),
     newCheckInAt,
     newReleaseAt: releaseAt(newCheckInAt, manifest.checkInPeriodMs, manifest.missesToRelease),
   });
@@ -414,7 +431,7 @@ export async function buildClose(
     .attach.MintingPolicy(contract.mintingPolicy)
     .attach.SpendingValidator(contract.spendingValidator)
     .complete();
-  return completedReview("close", draft, state.releaseAtMs);
+  return completedReview("close", draft, state.releaseAtMs, { validTo });
 }
 
 export async function buildRelease(
@@ -470,7 +487,7 @@ export async function buildRelease(
     .attach.MintingPolicy(contract.mintingPolicy)
     .attach.SpendingValidator(contract.spendingValidator)
     .complete();
-  return completedReview("release", draft, state.releaseAtMs);
+  return completedReview("release", draft, state.releaseAtMs, { validTo });
 }
 
 export async function signAndSubmitAction(review: ActionReview) {

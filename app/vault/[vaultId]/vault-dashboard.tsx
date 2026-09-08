@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { cardanoErrorMessage } from "@/lib/cardano-errors";
-import { EXPLORER_URL } from "@/lib/config";
+import { CARDANO_NETWORK, EXPLORER_URL } from "@/lib/config";
 import {
   type EternlConnection,
+  isExactWalletNetwork,
   isWalletSessionReady,
   reviewForWalletSession,
   walletIdentityKey,
@@ -324,6 +325,18 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         : walletRoles.includes("recipient")
           ? "Connected as the chosen recipient"
           : null;
+  const reviewNetwork = reviewConnection
+    ? isExactWalletNetwork(reviewConnection)
+      ? `${CARDANO_NETWORK} verified`
+      : `Cardano testnet connected · confirm ${CARDANO_NETWORK} in Eternl`
+    : null;
+  const reviewDestination = activeReview?.action === "close"
+    ? "Connected owner account"
+    : activeReview?.action === "release"
+      ? manifest?.releaseMode === "fixed" && manifest.destination
+        ? `Chosen address · ${shortHash(manifest.destination, 12)}`
+        : "Connected recovery-token account"
+      : null;
 
   return (
     <div className="page-shell vault-shell">
@@ -389,7 +402,40 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
           </div>
         </section>
 
-        {activeReview && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{activeReview.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{activeReview.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => { setReview(null); setReviewConnection(null); }}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button></div></section>}
+        {activeReview && reviewConnection && <section className="action-review">
+          <div>
+            <p className="eyebrow">REVIEW BEFORE APPROVING</p>
+            <h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2>
+            <p className="action-review-intro">Confirm these details before Eternl asks for your signature. Nothing is submitted until you approve it there.</p>
+          </div>
+          <dl>
+            <div><dt>Connected Eternl account</dt><dd className="mono">{shortHash(reviewConnection.address, 12)}</dd></div>
+            <div><dt>Cardano network</dt><dd>{reviewNetwork}</dd></div>
+            <div><dt>Transaction valid until</dt><dd>{formatUtc(activeReview.validTo)}</dd></div>
+            <div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div>
+            <div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div>
+            <div><dt>Baton site fee</dt><dd>{formatAda(activeReview.siteFeeLovelace)}</dd></div>
+            <div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div>
+            {activeReview.action === "pulse" ? <>
+              <div><dt>Missed check-ins now</dt><dd>{activeReview.currentMissedCount ?? missed} of {manifest.missesToRelease}</dd></div>
+              <div><dt>After confirmation</dt><dd>0 of {manifest.missesToRelease} missed</dd></div>
+              <div><dt>Protected ADA change</dt><dd>{activeReview.protectedValueEffect === "preserved" ? "0 ADA" : "Complete balance leaves the plan"}</dd></div>
+              <div><dt>Protected token / NFT change</dt><dd>{activeReview.protectedValueEffect === "preserved" ? "0 units" : "Complete balance leaves the plan"}</dd></div>
+              <div><dt>Handoff currently available after</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div>
+              <div><dt>Check-in recorded at</dt><dd>{formatUtc(activeReview.newCheckInAt!)}</dd></div>
+              <div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt!)}</dd></div>
+            </> : <>
+              <div><dt>Protected value</dt><dd>Complete balance leaves the plan</dd></div>
+              <div><dt>Receiving account</dt><dd>{reviewDestination}</dd></div>
+              <div><dt>Handoff boundary</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div>
+            </>}
+          </dl>
+          <p className="action-review-note">Eternl will show its own transaction confirmation next. Compare the network and fee there before signing.</p>
+          <div className="form-actions">
+            <button className="button secondary" onClick={() => { setReview(null); setReviewConnection(null); }}>Go back</button>
+            <button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button>
+          </div>
+        </section>}
 
         {submitted && <div className="success-box" role="status"><span>{submissionConfirmed ? "CONFIRMED ON CARDANO" : "SUBMITTED TO CARDANO"}</span><h3>{submissionConfirmed ? "Your action is complete." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a></div>}
       </>}
