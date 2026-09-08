@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import { EXPLORER_URL } from "@/lib/config";
-import { walletErrorMessage } from "@/lib/eternl";
+import {
+  type EternlConnection,
+  reviewForWalletSession,
+  walletErrorMessage,
+} from "@/lib/eternl";
 import {
   downloadManifest,
   parseManifest,
@@ -47,14 +51,19 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<ActionReview | null>(null);
-  const [reviewWalletAddress, setReviewWalletAddress] = useState<string | null>(null);
+  const [reviewConnection, setReviewConnection] =
+    useState<EternlConnection | null>(null);
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
+  const [submissionConfirmed, setSubmissionConfirmed] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const [walletRoleResult, setWalletRoleResult] = useState<WalletRoleResult | null>(null);
   const refreshVersionRef = useRef(0);
-  const walletAddress = wallet.connection?.address ?? null;
-  const activeReview = reviewWalletAddress === walletAddress ? review : null;
+  const activeReview = reviewForWalletSession(
+    review,
+    reviewConnection,
+    wallet.connection,
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -166,8 +175,9 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     }
     setBusy(true);
     setReview(null);
-    setReviewWalletAddress(null);
+    setReviewConnection(null);
     setSubmitted(null);
+    setSubmissionConfirmed(false);
     setError(null);
     try {
       const {
@@ -185,7 +195,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
             : await buildRelease(connection.lucid, manifest, fresh);
       setState(fresh);
       setReview(nextReview);
-      setReviewWalletAddress(connection.address);
+      setReviewConnection(connection);
     } catch (cause) {
       setError(cardanoErrorMessage(cause, "This action could not be prepared."));
     } finally {
@@ -202,9 +212,11 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       const { signAndSubmitAction } = await import("@/lib/vault-state");
       const txHash = await signAndSubmitAction(reviewed);
       setSubmitted(txHash);
+      setReview(null);
+      setReviewConnection(null);
       const confirmed = await wallet.connection.lucid.awaitTx(txHash);
       if (!confirmed) throw new Error("Transaction was submitted but confirmation was not observed.");
-      setReview(null);
+      setSubmissionConfirmed(true);
       await refresh(manifest);
     } catch (cause) {
       setError(
@@ -314,9 +326,9 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
           </div>
         </section>
 
-        {activeReview && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{activeReview.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{activeReview.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => setReview(null)}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for confirmation…" : "Approve in Eternl"}</button></div></section>}
+        {activeReview && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{activeReview.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{activeReview.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => { setReview(null); setReviewConnection(null); }}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for confirmation…" : "Approve in Eternl"}</button></div></section>}
 
-        {submitted && <div className="success-box"><span>CONFIRMED ON CARDANO</span><h3>Your action is complete.</h3><a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a></div>}
+        {submitted && <div className="success-box" role="status"><span>{submissionConfirmed ? "CONFIRMED ON CARDANO" : "SUBMITTED TO CARDANO"}</span><h3>{submissionConfirmed ? "Your action is complete." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a></div>}
       </>}
     </div>
   );

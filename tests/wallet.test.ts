@@ -6,6 +6,7 @@ import {
   isExactWalletNetwork,
   isWalletAccountChangeError,
   refreshEternlConnection,
+  reviewForWalletSession,
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
   walletErrorMessage,
@@ -202,6 +203,19 @@ test("account changes are detected from CIP-30 codes and provider wording", () =
   assert.equal(isWalletAccountChangeError({ info: "Account has changed" }), true);
   assert.equal(isWalletAccountChangeError({ info: "Network changed" }), false);
   assert.match(walletErrorMessage({ code: -4 }), /stopped using the previous account/i);
+});
+
+test("unsigned reviews belong to one exact wallet session", () => {
+  const firstSession = { address: OWNER_ADDRESS } as EternlConnection;
+  const secondSession = { address: OWNER_ADDRESS } as EternlConnection;
+  const review = { transactionHash: "prepared" };
+
+  assert.equal(
+    reviewForWalletSession(review, firstSession, firstSession),
+    review,
+  );
+  assert.equal(reviewForWalletSession(review, firstSession, secondSession), null);
+  assert.equal(reviewForWalletSession(review, firstSession, null), null);
 });
 
 test("provider network errors retain their useful detail", () => {

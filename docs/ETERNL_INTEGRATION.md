@@ -189,7 +189,10 @@ returned a signature or transaction ID.
 - No safe collateral: explain the need for an ADA-only UTxO; do not submit a
   transaction with unsafe collateral behavior.
 - Submission failed: do not call the pulse successful; re-query canonical state.
-- Account changed: invalidate the unsigned transaction and reconnect.
+- Account changed: invalidate the unsigned transaction and reconnect. Reviews
+  are bound to the exact authorized wallet session, not only its address, so a
+  stale review cannot reappear after switching away and back to the same
+  account.
 - CIP-30 account change: discard the previous account immediately and call
   `enable()` again to establish the account selected in Eternl. CIP-30 requires
   this re-establishment and says an already user-initiated account change should

@@ -53,6 +53,20 @@ export function isExactWalletNetwork(
     : connection.networkMagic === EXPECTED_NETWORK_MAGIC;
 }
 
+/**
+ * Keep an unsigned transaction bound to the exact authorized wallet session
+ * that constructed it. Address equality is intentionally insufficient: a user
+ * can switch away and later return to the same account after the transaction's
+ * inputs or validity interval have become stale.
+ */
+export function reviewForWalletSession<T>(
+  review: T | null,
+  preparedWith: EternlConnection | null,
+  current: EternlConnection | null,
+) {
+  return preparedWith !== null && preparedWith === current ? review : null;
+}
+
 export class WalletRequestTimeoutError extends Error {
   constructor(operation: string) {
     super(`${operation} timed out.`);

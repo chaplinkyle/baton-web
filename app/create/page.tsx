@@ -10,7 +10,12 @@ import {
   validateProtectStep,
   validateRecipientStep,
 } from "@/lib/create-validation";
-import { isExactWalletNetwork, walletErrorMessage } from "@/lib/eternl";
+import {
+  type EternlConnection,
+  isExactWalletNetwork,
+  reviewForWalletSession,
+  walletErrorMessage,
+} from "@/lib/eternl";
 import {
   CARDANO_NETWORK,
   EXPLORER_URL,
@@ -71,6 +76,8 @@ export default function CreateVault() {
   const [protectedTokenUnits, setProtectedTokenUnits] = useState<string[]>([]);
   const [review, setReview] = useState<CreationReview | null>(null);
   const [reviewKey, setReviewKey] = useState("");
+  const [reviewConnection, setReviewConnection] =
+    useState<EternlConnection | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stepIssue, setStepIssue] = useState<CreateValidationIssue | null>(null);
@@ -167,7 +174,9 @@ export default function CreateVault() {
       selectedAssets,
     ],
   );
-  const activeReview = reviewKey === configurationKey ? review : null;
+  const activeReview = reviewKey === configurationKey
+    ? reviewForWalletSession(review, reviewConnection, wallet.connection)
+    : null;
   const protectValues = {
     connected: Boolean(wallet.connection),
     ownerPaymentKeyHash: wallet.connection?.paymentKeyHash,
@@ -208,8 +217,15 @@ export default function CreateVault() {
     setStep(nextStep);
   }
 
+  function invalidateReview() {
+    setReview(null);
+    setReviewKey("");
+    setReviewConnection(null);
+  }
+
   async function hashFile(file: File | undefined) {
     if (!file) return;
+    invalidateReview();
     const hash = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
     setCommitment(
       [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join(""),
@@ -223,7 +239,8 @@ export default function CreateVault() {
       setStep(issue.step);
       return;
     }
-    if (!wallet.connection) {
+    const connection = wallet.connection;
+    if (!connection) {
       setError("Connect Eternl before constructing the transaction.");
       return;
     }
@@ -234,7 +251,7 @@ export default function CreateVault() {
       const rule = releaseMode === "fixed"
         ? { kind: "fixed" as const, address: destination }
         : { kind: "bearer" as const };
-      const built = await buildCreation(wallet.connection.lucid, {
+      const built = await buildCreation(connection.lucid, {
         protectedAssets: selectedAssets,
         livenessAddress,
         checkInPeriodMs: periodMs,
@@ -244,6 +261,7 @@ export default function CreateVault() {
       });
       setReview(built);
       setReviewKey(configurationKey);
+      setReviewConnection(connection);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Transaction construction failed.");
     } finally {
@@ -260,6 +278,7 @@ export default function CreateVault() {
       const { signAndSubmitCreation } = await import("@/lib/transactions");
       const txHash = await signAndSubmitCreation(reviewed);
       setSubmittedHash(txHash);
+      invalidateReview();
       const reviewedMode = reviewed.releaseRule.kind;
       const created: VaultManifest = {
         version: 3,
@@ -311,6 +330,7 @@ export default function CreateVault() {
   }
 
   function toggleProtected(unit: string) {
+    invalidateReview();
     setProtectedTokenUnits((current) =>
       current.includes(unit)
         ? current.filter((candidate) => candidate !== unit)
@@ -384,10 +404,10 @@ export default function CreateVault() {
               </div>
               {visibleStepIssue?.field === "wallet" && <p className="field-error wizard-field-error" role="alert">{visibleStepIssue.message}</p>}
               <div className="field-grid">
-                <label className="field"><span>ADA to protect</span><div className="input-suffix"><input data-create-field="ada" type="number" min="5" step="0.000001" value={ada} aria-invalid={visibleStepIssue?.field === "ada" || undefined} onChange={(e) => { setAda(e.target.value); clearStepIssue("ada"); }} /><b>ADA</b></div><small>The 5 ADA site fee and network fee are additional.</small>{visibleStepIssue?.field === "ada" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
-                <label className="field"><span>Check in every</span><div className="input-suffix"><input data-create-field="period" type="number" min="1" max="3650" value={periodDays} aria-invalid={visibleStepIssue?.field === "period" || undefined} onChange={(e) => { setPeriodDays(Number(e.target.value)); clearStepIssue("period"); }} /><b>DAYS</b></div>{visibleStepIssue?.field === "period" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
-                <label className="field"><span>How many check-ins may be missed?</span><div className="input-suffix"><input data-create-field="misses" type="number" min="1" max="1000" value={misses} aria-invalid={visibleStepIssue?.field === "misses" || undefined} onChange={(e) => { setMisses(Number(e.target.value)); clearStepIssue("misses"); }} /><b>MISSES</b></div><small>Your handoff becomes available after the {misses}{misses === 1 ? "st" : misses === 2 ? "nd" : misses === 3 ? "rd" : "th"} missed check-in.</small>{visibleStepIssue?.field === "misses" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
-                <label className="field"><span>Wallet used to check in</span><input data-create-field="liveness" value={livenessAddress} aria-invalid={visibleStepIssue?.field === "liveness" || undefined} onChange={(e) => { setLivenessAddress(e.target.value.trim()); clearStepIssue("liveness"); }} placeholder="addr_test1… from another Eternl account" /><small>For safety, use a different account from the one creating the plan. This wallet can check in but cannot take your assets.</small>{visibleStepIssue?.field === "liveness" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <label className="field"><span>ADA to protect</span><div className="input-suffix"><input data-create-field="ada" type="number" min="5" step="0.000001" value={ada} aria-invalid={visibleStepIssue?.field === "ada" || undefined} onChange={(e) => { invalidateReview(); setAda(e.target.value); clearStepIssue("ada"); }} /><b>ADA</b></div><small>The 5 ADA site fee and network fee are additional.</small>{visibleStepIssue?.field === "ada" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <label className="field"><span>Check in every</span><div className="input-suffix"><input data-create-field="period" type="number" min="1" max="3650" value={periodDays} aria-invalid={visibleStepIssue?.field === "period" || undefined} onChange={(e) => { invalidateReview(); setPeriodDays(Number(e.target.value)); clearStepIssue("period"); }} /><b>DAYS</b></div>{visibleStepIssue?.field === "period" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <label className="field"><span>How many check-ins may be missed?</span><div className="input-suffix"><input data-create-field="misses" type="number" min="1" max="1000" value={misses} aria-invalid={visibleStepIssue?.field === "misses" || undefined} onChange={(e) => { invalidateReview(); setMisses(Number(e.target.value)); clearStepIssue("misses"); }} /><b>MISSES</b></div><small>Your handoff becomes available after the {misses}{misses === 1 ? "st" : misses === 2 ? "nd" : misses === 3 ? "rd" : "th"} missed check-in.</small>{visibleStepIssue?.field === "misses" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <label className="field"><span>Wallet used to check in</span><input data-create-field="liveness" value={livenessAddress} aria-invalid={visibleStepIssue?.field === "liveness" || undefined} onChange={(e) => { invalidateReview(); setLivenessAddress(e.target.value.trim()); clearStepIssue("liveness"); }} placeholder="addr_test1… from another Eternl account" /><small>For safety, use a different account from the one creating the plan. This wallet can check in but cannot take your assets.</small>{visibleStepIssue?.field === "liveness" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
               </div>
 
               {walletAssets.length > 0 && <div className="asset-picker"><div><h3>Tokens and NFTs</h3><p>Select any other Cardano assets you want to protect.</p></div><div className="asset-list">{walletAssets.map((asset) => <label key={asset.unit}><input type="checkbox" checked={protectedTokenUnits.includes(asset.unit)} onChange={() => toggleProtected(asset.unit)} /><span className="mono">{shortHash(asset.unit, 10)}</span><strong>{asset.quantity.toString()}</strong></label>)}</div></div>}
@@ -401,13 +421,13 @@ export default function CreateVault() {
             <div className="form-section">
               <div className="form-heading"><span>02</span><div><h2>Choose one receiving method</h2><p>Each plan uses exactly one method. It cannot use both or switch methods later.</p></div></div>
               <div className="mode-selector">
-                <button type="button" aria-pressed={releaseMode === "fixed"} className={releaseMode === "fixed" ? "selected" : ""} onClick={() => { setReleaseMode("fixed"); clearStepIssue("destination"); }}><span>OPTION 1 · ADDRESS CHOSEN NOW</span><strong>Fixed destination</strong><p>After the waiting period, the assets can only go to the exact Cardano address you enter. Recommended for most family plans.</p></button>
-                <button type="button" aria-pressed={releaseMode === "bearer"} className={releaseMode === "bearer" ? "selected" : ""} onClick={() => { setReleaseMode("bearer"); clearStepIssue("destination"); }}><span>OPTION 2 · NO ADDRESS CHOSEN NOW</span><strong>Recovery token</strong><p>After the waiting period, whoever holds the unique token chooses the receiving address.</p></button>
+                <button type="button" aria-pressed={releaseMode === "fixed"} className={releaseMode === "fixed" ? "selected" : ""} onClick={() => { invalidateReview(); setReleaseMode("fixed"); clearStepIssue("destination"); }}><span>OPTION 1 · ADDRESS CHOSEN NOW</span><strong>Fixed destination</strong><p>After the waiting period, the assets can only go to the exact Cardano address you enter. Recommended for most family plans.</p></button>
+                <button type="button" aria-pressed={releaseMode === "bearer"} className={releaseMode === "bearer" ? "selected" : ""} onClick={() => { invalidateReview(); setReleaseMode("bearer"); clearStepIssue("destination"); }}><span>OPTION 2 · NO ADDRESS CHOSEN NOW</span><strong>Recovery token</strong><p>After the waiting period, whoever holds the unique token chooses the receiving address.</p></button>
               </div>
               {releaseMode === "bearer" ? (
                 <div className="field full-field"><div className="field"><span>Your Baton recovery token</span><strong>Created automatically with this plan</strong><small>It will be placed in your wallet, outside the protected plan. Give it to someone you trust; whoever holds it after the waiting period can receive the assets.</small></div></div>
               ) : (
-                <div className="field full-field"><label className="field"><span>Receiving Cardano address</span><input data-create-field="destination" value={destination} aria-invalid={visibleStepIssue?.field === "destination" || undefined} onChange={(e) => { setDestination(e.target.value.trim()); clearStepIssue("destination"); }} placeholder="addr_test1…" /><small>Check this carefully. The plan cannot replace or repair this address later.</small>{visibleStepIssue?.field === "destination" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label></div>
+                <div className="field full-field"><label className="field"><span>Receiving Cardano address</span><input data-create-field="destination" value={destination} aria-invalid={visibleStepIssue?.field === "destination" || undefined} onChange={(e) => { invalidateReview(); setDestination(e.target.value.trim()); clearStepIssue("destination"); }} placeholder="addr_test1…" /><small>Check this carefully. The plan cannot replace or repair this address later.</small>{visibleStepIssue?.field === "destination" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label></div>
               )}
               <div className="risk-box"><strong>Choose enough time</strong><p>If you miss {misses} check-ins in a row, your handoff becomes available after {periodDays * misses} days—even if you are alive, traveling, ill, or unable to reach your check-in wallet.</p></div>
               <div className="form-actions"><button className="button secondary" onClick={() => goToStep(1)}>Back</button><button className="button primary" onClick={() => goToStep(3)}>Review my plan</button></div>
@@ -432,7 +452,7 @@ export default function CreateVault() {
 
               {activeReview && <div className="tx-review"><div className="tx-review-head"><span>READY FOR YOUR APPROVAL</span><strong>{shortHash(activeReview.transactionHash, 12)}</strong></div><dl><div><dt>Plan identity</dt><dd className="mono">{shortHash(activeReview.contract.policyId, 12)}</dd></div><div><dt>Protected Cardano address</dt><dd className="mono">{shortHash(activeReview.contract.address, 14)}</dd></div><div><dt>Exactly what will be protected</dt><dd>{formatAda(activeReview.protectedAssets.lovelace ?? 0n)} + {Object.keys(activeReview.protectedAssets).filter((unit) => unit !== "lovelace").length} other asset(s)</dd></div><div><dt>Check in every</dt><dd>{activeReview.checkInPeriodMs / DAY_MS} days</dd></div><div><dt>Misses allowed</dt><dd>{activeReview.missesToRelease}</dd></div><div><dt>Who can receive</dt><dd>{activeReview.releaseRule.kind === "fixed" ? shortHash(activeReview.releaseRule.address, 12) : `Recovery token ${shortHash(`${activeReview.releaseRule.policyId}${activeReview.releaseRule.assetName}`, 12)}`}</dd></div><div><dt>Plan starts</dt><dd>{formatUtc(activeReview.lastCheckInAt)}</dd></div><div><dt>Handoff available after</dt><dd>{formatUtc(activeReview.releaseAt)}</dd></div><div><dt>One-time site fee</dt><dd>{formatAda(activeReview.siteFeeLovelace)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Assets moved during check-in</dt><dd>None</dd></div></dl></div>}
 
-              {submittedHash ? <div className="success-box"><span>{createdManifest ? "CONFIRMED ON" : "PENDING ON"} {CARDANO_NETWORK.toUpperCase()}</span><h3>{createdManifest ? "Your handoff plan is protected." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submittedHash}`} target="_blank" rel="noreferrer">View Cardano transaction {shortHash(submittedHash, 12)} ↗</a>{createdManifest && <div className="success-actions"><button className="button secondary" onClick={() => downloadManifest(createdManifest)}>Download my plan file</button><Link className="button primary" href={`/vault/${submittedHash}`}>Open my handoff plan</Link></div>}<p>Keep the plan file in more than one safe place. It contains no private key or seed phrase, but it helps you return to and independently check this plan.</p></div> : <div className="form-actions"><button className="button secondary" onClick={() => { goToStep(2); setReview(null); }}>Back</button>{activeReview ? <button className="button primary" disabled={busy} onClick={submitTransaction}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button> : <button className="button primary" disabled={busy || !runtimeReadiness.canCreate} onClick={prepareTransaction}>{busy ? "Preparing…" : "Prepare for Eternl"}</button>}</div>}
+              {submittedHash ? <div className="success-box"><span>{createdManifest ? "CONFIRMED ON" : "PENDING ON"} {CARDANO_NETWORK.toUpperCase()}</span><h3>{createdManifest ? "Your handoff plan is protected." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submittedHash}`} target="_blank" rel="noreferrer">View Cardano transaction {shortHash(submittedHash, 12)} ↗</a>{createdManifest && <div className="success-actions"><button className="button secondary" onClick={() => downloadManifest(createdManifest)}>Download my plan file</button><Link className="button primary" href={`/vault/${submittedHash}`}>Open my handoff plan</Link></div>}<p>Keep the plan file in more than one safe place. It contains no private key or seed phrase, but it helps you return to and independently check this plan.</p></div> : <div className="form-actions"><button className="button secondary" onClick={() => { goToStep(2); invalidateReview(); }}>Back</button>{activeReview ? <button className="button primary" disabled={busy} onClick={submitTransaction}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button> : <button className="button primary" disabled={busy || !runtimeReadiness.canCreate} onClick={prepareTransaction}>{busy ? "Preparing…" : "Prepare for Eternl"}</button>}</div>}
             </div>
           )}
         </section>
