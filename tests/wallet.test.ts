@@ -8,6 +8,7 @@ import {
   isWalletSessionReady,
   refreshEternlConnection,
   reviewForWalletSession,
+  shouldOfferWalletAppHandoff,
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
   walletErrorMessage,
@@ -46,7 +47,7 @@ test("wallet setup guidance matches the browser environment", () => {
   assert.deepEqual(walletSetupPresentation(true), {
     title: "Open Baton inside Eternl",
     message:
-      "This Baton release connects through Eternl. Open its built-in dApp browser, choose Eternl if your phone asks, then select Cardano Preprod.",
+      "This Baton release connects through Eternl. Open its built-in dApp browser, choose Eternl if your device asks, then select Cardano Preprod.",
     primaryAction: "Open Baton in Eternl",
     secondaryAction: "Get Eternl",
   });
@@ -57,6 +58,25 @@ test("wallet setup guidance matches the browser environment", () => {
     primaryAction: "Install Eternl",
     secondaryAction: "Reload Baton",
   });
+});
+
+test("wallet-app handoff follows the device rather than the viewport", () => {
+  assert.equal(shouldOfferWalletAppHandoff({
+    userAgent: "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro)",
+    maxTouchPoints: 5,
+  }), true);
+  assert.equal(shouldOfferWalletAppHandoff({
+    userAgent: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)",
+    maxTouchPoints: 5,
+  }), true);
+  assert.equal(shouldOfferWalletAppHandoff({
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    maxTouchPoints: 5,
+  }), true);
+  assert.equal(shouldOfferWalletAppHandoff({
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    maxTouchPoints: 10,
+  }), false);
 });
 
 test("wallet-app links follow CIP-158 and preserve the complete Baton URL", () => {

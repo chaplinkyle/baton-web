@@ -54,8 +54,10 @@ matching Eternl's published integration requirements.
 
 ### Mobile handoff
 
-On a small-screen browser where Eternl is not injected, Baton offers the
-standard CIP-158 URI for the current page:
+On a mobile browser where Eternl is not injected, Baton offers the standard
+CIP-158 URI for the current page. Device detection is independent of the
+responsive layout breakpoint, so phones and tablets keep the mobile handoff in
+landscape while a narrow desktop window keeps the extension instructions:
 
 ```text
 web+cardano://browse/v1?uri=<percent-encoded Baton URL>

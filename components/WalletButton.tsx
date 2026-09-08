@@ -6,6 +6,7 @@ import { CARDANO_NETWORK } from "@/lib/config";
 import {
   cardanoBrowseUri,
   isExactWalletNetwork,
+  shouldOfferWalletAppHandoff,
   walletIssuePresentation,
   walletSetupPresentation,
 } from "@/lib/eternl";
@@ -135,7 +136,12 @@ export function WalletButton() {
   const exactNetworkConfirmed =
     wallet.connection ? isExactWalletNetwork(wallet.connection) : false;
   const issuePresentation = walletIssuePresentation(wallet.issueKind);
-  const setupPresentation = walletSetupPresentation(mobileSheet);
+  const walletAppHandoff = typeof window !== "undefined" &&
+    shouldOfferWalletAppHandoff({
+      userAgent: window.navigator.userAgent,
+      maxTouchPoints: window.navigator.maxTouchPoints,
+    });
+  const setupPresentation = walletSetupPresentation(walletAppHandoff);
 
   const handlePrimaryClick = () => {
     if (panelOpen) {
@@ -326,7 +332,7 @@ export function WalletButton() {
                 {wallet.error ?? setupPresentation.message}
               </p>
               <div className="wallet-panel-actions wallet-setup-actions">
-                {mobileSheet ? (
+                {walletAppHandoff ? (
                   <>
                     <button type="button" onClick={openWalletApp}>
                       {setupPresentation.primaryAction}

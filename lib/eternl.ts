@@ -111,12 +111,21 @@ export function walletIssuePresentation(kind: WalletIssueKind | null) {
   };
 }
 
+export function shouldOfferWalletAppHandoff(environment: {
+  userAgent: string;
+  maxTouchPoints?: number;
+}) {
+  const userAgent = environment.userAgent.toLowerCase();
+  return /android|iphone|ipad|ipod|mobile/.test(userAgent) ||
+    (userAgent.includes("macintosh") && (environment.maxTouchPoints ?? 0) > 1);
+}
+
 export function walletSetupPresentation(mobile: boolean) {
   return mobile
     ? {
         title: "Open Baton inside Eternl",
         message:
-          "This Baton release connects through Eternl. Open its built-in dApp browser, choose Eternl if your phone asks, then select Cardano Preprod.",
+          "This Baton release connects through Eternl. Open its built-in dApp browser, choose Eternl if your device asks, then select Cardano Preprod.",
         primaryAction: "Open Baton in Eternl",
         secondaryAction: "Get Eternl",
       }
