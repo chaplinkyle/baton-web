@@ -474,8 +474,8 @@ export default function CreateVault() {
           ))}
           <div className="network-plate">
             <span>CARDANO NETWORK</span><strong>{CARDANO_NETWORK}</strong>
-            <small>{runtimeReadiness.canCreate ? "Ready to create plans" : "Review mode only"}</small>
-            <span className="plate-rule">ONE-TIME SETUP</span><strong>5 ADA</strong>
+            <small>{runtimeReadiness.canCreate ? "Preprod testing only" : "Review mode only"}</small>
+            <span className="plate-rule">SITE SETUP FEE</span><strong>5 ADA</strong>
             <span className="plate-rule">LATER CHECK-INS</span><strong>No site fee</strong>
             <small>Normal Cardano network fees still apply.</small>
           </div>

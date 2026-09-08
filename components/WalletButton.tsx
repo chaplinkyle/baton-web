@@ -128,6 +128,11 @@ export function WalletButton() {
     window.location.assign(cardanoBrowseUri(window.location.href));
   }
 
+  function stopConnection() {
+    wallet.cancelConnection();
+    closePanel(true);
+  }
+
   const label = wallet.revalidating
     ? "Checking account…"
     : wallet.connection
@@ -318,7 +323,7 @@ export function WalletButton() {
                 Waiting for your decision in Eternl
               </div>
               <div className="wallet-panel-actions single-action">
-                <button type="button" onClick={() => wallet.cancelConnection()}>
+                <button type="button" onClick={stopConnection}>
                   Stop waiting in Baton
                 </button>
               </div>
@@ -340,7 +345,7 @@ export function WalletButton() {
                 Finishing the secure connection
               </div>
               <div className="wallet-panel-actions single-action">
-                <button type="button" onClick={() => wallet.cancelConnection()}>
+                <button type="button" onClick={stopConnection}>
                   Stop waiting in Baton
                 </button>
               </div>
@@ -361,7 +366,7 @@ export function WalletButton() {
                 Updating your wallet account
               </div>
               <div className="wallet-panel-actions single-action">
-                <button type="button" onClick={() => wallet.cancelConnection()}>
+                <button type="button" onClick={stopConnection}>
                   Stop waiting in Baton
                 </button>
               </div>
@@ -382,7 +387,7 @@ export function WalletButton() {
                 Restoring your wallet connection
               </div>
               <div className="wallet-panel-actions single-action">
-                <button type="button" onClick={() => wallet.cancelConnection()}>
+                <button type="button" onClick={stopConnection}>
                   Stop restoring
                 </button>
               </div>
