@@ -13,6 +13,7 @@ import {
   reviewForWalletSession,
   selectEternlProvider,
   shouldOfferWalletAppHandoff,
+  walletAddressSearchDescription,
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
   walletErrorMessage,
@@ -106,6 +107,17 @@ test("wallet setup guidance matches the browser environment", () => {
     primaryAction: "Install Eternl",
     secondaryAction: "Reload Baton",
   });
+});
+
+test("connected-wallet discovery copy is natural for one or many addresses", () => {
+  assert.equal(
+    walletAddressSearchDescription(1),
+    "the address Eternl provided",
+  );
+  assert.equal(
+    walletAddressSearchDescription(4),
+    "all 4 addresses Eternl provided",
+  );
 });
 
 test("wallet-app handoff follows the device rather than the viewport", () => {

@@ -238,6 +238,12 @@ export function walletSetupPresentation(mobile: boolean) {
       };
 }
 
+export function walletAddressSearchDescription(addressCount: number) {
+  return addressCount === 1
+    ? "the address Eternl provided"
+    : `all ${addressCount} addresses Eternl provided`;
+}
+
 export function withWalletTimeout<T>(
   request: Promise<T>,
   operation: string,

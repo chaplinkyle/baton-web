@@ -7,6 +7,7 @@ import {
   cardanoBrowseUri,
   isExactWalletNetwork,
   shouldOfferWalletAppHandoff,
+  walletAddressSearchDescription,
   walletIssuePresentation,
   walletSetupPresentation,
 } from "@/lib/eternl";
@@ -261,7 +262,7 @@ export function WalletButton() {
               </div>
               <p>
                 {exactNetworkConfirmed
-                  ? `Baton confirmed this account is on Cardano ${CARDANO_NETWORK}. It will search all ${wallet.connection.paymentKeyHashes.length} payment address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} exposed by this account.`
+                  ? `Baton confirmed this account is on Cardano ${CARDANO_NETWORK}. It will search ${walletAddressSearchDescription(wallet.connection.paymentKeyHashes.length)} for related plans.`
                   : `Eternl confirmed a Cardano testnet account, but this empty account cannot prove ${CARDANO_NETWORK} versus Preview yet. Transactions remain locked until Baton verifies ${CARDANO_NETWORK}.`}
               </p>
               <label className="wallet-address-field">
@@ -308,7 +309,7 @@ export function WalletButton() {
                   wallet.disconnect();
                   closePanel(true);
                 }}>
-                  Disconnect Baton
+                  Disconnect wallet
                 </button>
               </div>
               {CARDANO_NETWORK !== "Mainnet" && (

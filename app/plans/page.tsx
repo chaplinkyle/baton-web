@@ -289,7 +289,7 @@ export default function PlansPage() {
               ? !walletReady
                 ? `${CARDANO_NETWORK} not verified · showing ${plans.length} saved plan${plans.length === 1 ? "" : "s"} from this device`
                 : loading
-                ? `${isExactWalletNetwork(wallet.connection) ? "Preprod verified" : "Testnet connected · confirm Preprod in Eternl"} · Searching ${wallet.connection.paymentKeyHashes.length} wallet address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} and this device`
+                ? `${isExactWalletNetwork(wallet.connection) ? "Preprod verified" : "Testnet connected · confirm Preprod in Eternl"} · Searching this wallet and plans saved on this device`
                 : `${isExactWalletNetwork(wallet.connection) ? "Preprod verified" : "Testnet connected · confirm Preprod in Eternl"} · ${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
             : waitingForApproval
               ? "Approve Baton in Eternl; no transaction is being submitted"
