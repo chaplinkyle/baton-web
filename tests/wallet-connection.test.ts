@@ -93,6 +93,7 @@ function installFakeEternl(
   onEnable: (options: unknown) => void,
   supportedExtensions: Array<{ cip: number }> = [{ cip: 142 }],
   approval: Promise<ReturnType<typeof fakeWalletApi>> = Promise.resolve(api),
+  onProviderRead: () => void = () => undefined,
 ) {
   const previousWindow = globalThis.window;
   const previousFetch = globalThis.fetch;
@@ -118,6 +119,7 @@ function installFakeEternl(
         ? input.href
         : input.url;
     if (url === "https://fake.koios.test/api/v1/epoch_params?limit=1") {
+      onProviderRead();
       return Response.json([FAKE_PROTOCOL_PARAMETERS]);
     }
     throw new Error(`Unexpected wallet integration request: ${url}`);
@@ -254,6 +256,35 @@ test("concurrent connection attempts share one Eternl approval and handshake", a
     assert.equal(firstApproved, 1);
     assert.equal(secondApproved, 1);
     assert.equal(firstConnection, secondConnection);
+  } finally {
+    restoreWindow();
+  }
+});
+
+test("loads public Cardano parameters while Eternl approval is pending", async () => {
+  const api = fakeWalletApi();
+  let providerReads = 0;
+  let releaseApproval: ((value: typeof api) => void) | undefined;
+  const approval = new Promise<typeof api>((resolve) => {
+    releaseApproval = resolve;
+  });
+  const restoreWindow = installFakeEternl(
+    api,
+    () => undefined,
+    [{ cip: 142 }],
+    approval,
+    () => { providerReads += 1; },
+  );
+
+  try {
+    const connection = connectEternl();
+    for (let attempt = 0; attempt < 50 && providerReads === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    assert.equal(providerReads, 1);
+    releaseApproval?.(api);
+    assert.equal((await connection).networkMagic, 1);
   } finally {
     restoreWindow();
   }

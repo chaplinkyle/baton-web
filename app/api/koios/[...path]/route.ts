@@ -24,6 +24,13 @@ const DEFAULT_UPSTREAM =
       ? "https://preview.koios.rest/api/v1"
       : "https://preprod.koios.rest/api/v1";
 
+// Lucid requests the current epoch parameters whenever it creates a provider.
+// They are public, network-wide data and do not contain wallet information.
+// A short shared cache removes repeated provider startup latency while every
+// account-, transaction-, and plan-specific response remains strictly fresh.
+const EPOCH_PARAMETERS_CACHE =
+  "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
+
 type RouteContext = {
   params: Promise<{ path: string[] }>;
 };
@@ -61,7 +68,9 @@ async function proxyKoios(request: Request, context: RouteContext) {
     });
 
     const responseHeaders = new Headers({
-      "Cache-Control": "no-store",
+      "Cache-Control": endpoint === "epoch_params"
+        ? EPOCH_PARAMETERS_CACHE
+        : "no-store",
       "Content-Type": upstream.headers.get("content-type") ?? "application/json",
     });
     const contentRange = upstream.headers.get("content-range");

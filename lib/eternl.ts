@@ -570,6 +570,22 @@ async function establishEternlConnection(
   };
   browserGlobals.Buffer ??= Buffer;
 
+  // Cardano protocol parameters are public and independent of the selected
+  // wallet. Start loading them while Eternl is handling the access request so
+  // a successful approval does not lead to a second, unexplained wait. Keep a
+  // rejection handler attached immediately: the user may decline before the
+  // provider request settles, and that rejected background promise must never
+  // become an unhandled browser error.
+  const lucidPromise = (async () => {
+    const { Koios, Lucid } = await import(
+      "@lucid-evolution/lucid"
+    );
+    return withCardanoReadRetry(
+      () => Lucid(new Koios(KOIOS_URL), CARDANO_NETWORK),
+    );
+  })();
+  void lucidPromise.catch(() => undefined);
+
   const supportsExactNetwork = hasExtension(provider.supportedExtensions, 142);
   const api = await withWalletTimeout(
     requestEternlApproval(provider, supportsExactNetwork),
@@ -578,12 +594,7 @@ async function establishEternlConnection(
   );
   onApproved();
 
-  const { Koios, Lucid } = await import(
-    "@lucid-evolution/lucid"
-  );
-  const lucid = await withCardanoReadRetry(
-    () => Lucid(new Koios(KOIOS_URL), CARDANO_NETWORK),
-  );
+  const lucid = await lucidPromise;
   lucid.selectWallet.fromAPI(api);
   const identity = await readWalletIdentity(api, lucid);
 
