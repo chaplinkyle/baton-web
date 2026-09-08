@@ -157,6 +157,7 @@ export function WalletButton() {
       setOpen((current) => !current);
       return;
     }
+    setOpen(true);
     void wallet.connect();
   };
 

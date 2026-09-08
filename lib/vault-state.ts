@@ -33,6 +33,8 @@ import {
   manifestReleaseRule,
   type VaultManifest,
 } from "./manifest";
+import type { EternlConnection } from "./eternl";
+import { signAndSubmitVerified } from "./wallet-signing";
 
 export type ConfirmedVaultState = {
   utxo: UTxO;
@@ -286,6 +288,7 @@ export type ActionReview = {
   currentMissedCount?: number;
   newReleaseAt?: number;
   newCheckInAt?: number;
+  requiredSignerKeyHash?: string;
 };
 
 /**
@@ -311,6 +314,7 @@ function completedReview(
     ActionReview,
     "validTo" | "currentMissedCount" | "newReleaseAt" | "newCheckInAt"
   >,
+  requiredSignerKeyHash?: string,
 ): ActionReview {
   return {
     action,
@@ -322,6 +326,7 @@ function completedReview(
     feeLovelace: BigInt(draft.toTransaction().body().fee().toString()),
     transactionHash: draft.toHash(),
     transactionBytes: draft.toCBOR({ canonical: true }).length / 2,
+    requiredSignerKeyHash,
   };
 }
 
@@ -389,7 +394,7 @@ export async function buildPulse(
     ),
     newCheckInAt,
     newReleaseAt: releaseAt(newCheckInAt, manifest.checkInPeriodMs, manifest.missesToRelease),
-  });
+  }, manifest.livenessKeyHash);
 }
 
 export async function buildClose(
@@ -441,7 +446,13 @@ export async function buildClose(
     .attach.MintingPolicy(contract.mintingPolicy)
     .attach.SpendingValidator(contract.spendingValidator)
     .complete();
-  return completedReview("close", draft, state.releaseAtMs, { validTo });
+  return completedReview(
+    "close",
+    draft,
+    state.releaseAtMs,
+    { validTo },
+    manifest.ownerKeyHash,
+  );
 }
 
 export async function buildRelease(
@@ -452,6 +463,10 @@ export async function buildRelease(
 ) {
   if (nowMs < state.releaseAtMs) throw new Error("Release is not valid before the final missed boundary.");
   const walletAddress = await lucid.wallet().address();
+  const executorCredential = getAddressDetails(walletAddress).paymentCredential;
+  if (!executorCredential || executorCredential.type !== "Key") {
+    throw new Error("The connected release account must use a key payment credential.");
+  }
   const contract = applyVault(manifest.seed, manifest.receiptName, CARDANO_NETWORK);
   const payoutAddress = manifest.destination ?? walletAddress;
   let payoutAssets: Assets = withTerminalReceipt(
@@ -492,15 +507,28 @@ export async function buildRelease(
       finalizeReceiptRedeemer,
     )
     .pay.ToAddress(payoutAddress, payoutAssets)
+    .addSignerKey(executorCredential.hash)
     .validFrom(validFrom)
     .validTo(validTo)
     .attach.MintingPolicy(contract.mintingPolicy)
     .attach.SpendingValidator(contract.spendingValidator)
     .complete();
-  return completedReview("release", draft, state.releaseAtMs, { validTo });
+  return completedReview(
+    "release",
+    draft,
+    state.releaseAtMs,
+    { validTo },
+    executorCredential.hash,
+  );
 }
 
-export async function signAndSubmitAction(review: ActionReview) {
-  const signed = await review.draft.sign.withWallet().complete();
-  return signed.submit();
+export async function signAndSubmitAction(
+  review: ActionReview,
+  connection?: Pick<EternlConnection, "api" | "lucid">,
+) {
+  return signAndSubmitVerified(
+    review,
+    review.requiredSignerKeyHash,
+    connection,
+  );
 }

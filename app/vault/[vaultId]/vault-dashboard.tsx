@@ -279,7 +279,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     setError(null);
     try {
       const { signAndSubmitAction } = await import("@/lib/vault-state");
-      const txHash = await signAndSubmitAction(reviewed);
+      const txHash = await signAndSubmitAction(reviewed, wallet.connection);
       setSubmitted(txHash);
       setReview(null);
       setReviewConnection(null);

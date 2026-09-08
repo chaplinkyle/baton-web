@@ -287,7 +287,7 @@ export default function CreateVault() {
     setError(null);
     try {
       const { signAndSubmitCreation } = await import("@/lib/transactions");
-      const txHash = await signAndSubmitCreation(reviewed);
+      const txHash = await signAndSubmitCreation(reviewed, wallet.connection);
       setSubmittedHash(txHash);
       invalidateReview();
       const reviewedMode = reviewed.releaseRule.kind;
@@ -381,7 +381,7 @@ export default function CreateVault() {
 
       <div className="wizard-layout">
         <aside className="wizard-nav" aria-label="Creation steps">
-          {["Protect", "Choose recipient", "Review"].map((label, index) => (
+          {["Protect", "Recipient", "Review"].map((label, index) => (
             <button
               key={label}
               aria-current={step === index + 1 ? "step" : undefined}

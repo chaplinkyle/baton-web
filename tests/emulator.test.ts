@@ -66,6 +66,11 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
       `${label} review expiry must match the transaction body`,
     );
     assert.equal(review.siteFeeLovelace, 0n, `${label} must not add a Baton action fee`);
+    assert.match(
+      review.requiredSignerKeyHash ?? "",
+      /^[0-9a-f]{56}$/,
+      `${label} must bind its wallet approval to one key credential`,
+    );
   };
   const assertCreationReviewIntegrity = (
     review: Awaited<ReturnType<typeof buildCreation>>,

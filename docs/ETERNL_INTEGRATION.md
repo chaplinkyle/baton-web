@@ -19,8 +19,13 @@ only in response to a user action. The adapter uses CIP-30 to:
 - verify network identity;
 - read user-approved UTxOs and a change address;
 - request a transaction witness with `signTx`;
-- assemble and verify the complete signed transaction; and
-- submit the transaction and track its transaction ID.
+- cryptographically verify every returned key witness and the required
+  owner/check-in signer where applicable;
+- assemble the complete transaction and prove its body still exactly matches
+  the reviewed transaction; and
+- submit through Eternl when available, otherwise submit the already-signed
+  transaction through the configured Cardano provider, and verify the returned
+  transaction ID.
 
 No provider method exposes the seed phrase or private key to the site. A wallet
 signature request is shown and approved inside Eternl.

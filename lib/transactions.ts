@@ -27,6 +27,8 @@ import {
   SITE_FEE_LOVELACE,
   VALIDITY_START_BUFFER_MS,
 } from "./product";
+import type { EternlConnection } from "./eternl";
+import { signAndSubmitVerified } from "./wallet-signing";
 
 export type CreationRequest = {
   protectedAssets: Assets;
@@ -328,8 +330,9 @@ async function buildCreationTransaction(
   };
 }
 
-export async function signAndSubmitCreation(review: CreationReview) {
-  const signed = await review.draft.sign.withWallet().complete();
-  const txHash = await signed.submit();
-  return txHash;
+export async function signAndSubmitCreation(
+  review: CreationReview,
+  connection?: Pick<EternlConnection, "api" | "lucid">,
+) {
+  return signAndSubmitVerified(review, review.ownerKeyHash, connection);
 }

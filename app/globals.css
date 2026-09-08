@@ -523,9 +523,9 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .vault-title .button { width: 100%; }
   .plans-title, .plans-account, .plan-card-head, .plan-card-foot { align-items: stretch; flex-direction: column; }
   .plans-title .button, .plans-account .button, .plan-card-foot .button { width: 100%; }
-  .plans-overview, .plan-facts, .add-plan-controls { grid-template-columns: 1fr; }
-  .plans-overview div, .plan-facts div { border-right: 0 !important; border-bottom: 1px solid var(--line); }
-  .plans-overview div:last-child, .plan-facts div:last-child { border-bottom: 0; }
+  .plan-facts, .add-plan-controls { grid-template-columns: 1fr; }
+  .plan-facts div { border-right: 0 !important; border-bottom: 1px solid var(--line); }
+  .plan-facts div:last-child { border-bottom: 0; }
   .plan-roles { justify-content: start; }
   .vault-status { grid-template-columns: 1fr; }
   .status-main { grid-row: 1; }
@@ -625,6 +625,12 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .mode-selector button { min-height: 0; padding: 20px; }
   .mode-selector strong { margin-top: 16px; }
   .wizard-nav > button { font-size: .8125rem; }
+  .network-plate { grid-template-columns: minmax(0, 1fr) max-content; column-gap: 16px; }
+  .network-plate span, .network-plate strong { align-self: baseline; }
+  .plans-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plans-overview div { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .plans-overview div:nth-child(2n) { border-right: 0; }
+  .plans-overview div:nth-child(n+3) { border-bottom: 0; }
   .form-actions { gap: 12px; margin-top: 24px; padding-top: 24px; }
   .success-actions { flex-direction: column; }
   .simple-steps article { grid-template-columns: 34px minmax(0, 1fr); gap: 16px; }
