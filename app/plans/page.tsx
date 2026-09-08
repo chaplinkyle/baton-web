@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Buffer } from "buffer";
 import { useWallet } from "@/app/providers";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import {
   parseManifest,
@@ -275,7 +276,7 @@ export default function PlansPage() {
         {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading || wallet.revalidating}>{wallet.revalidating ? "Confirming…" : loading ? "Checking…" : "Refresh"}</button>}
       </section>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <ErrorBanner message={error} />}
       {notice && <div className="plans-notice" role="status">{notice}</div>}
 
       <section className="plans-overview" aria-live="polite">

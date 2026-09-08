@@ -85,9 +85,29 @@ export function cardanoErrorMessage(
     return "Cardano is receiving too many requests right now. Nothing changed. Try again shortly.";
   }
 
+  if (
+    normalized.includes("does not have enough funds") ||
+    normalized.includes("not enough funds") ||
+    normalized.includes("insufficient funds") ||
+    normalized.includes("inputs exhausted") ||
+    normalized.includes("insufficient input")
+  ) {
+    return "This Eternl account does not have enough available ADA or selected assets to prepare the transaction. Restore any selected assets, add Preprod test ADA, and make sure Eternl has collateral set up. Nothing changed.";
+  }
+
+  if (
+    normalized.includes("no collateral") ||
+    normalized.includes("collateral not found") ||
+    normalized.includes("missing collateral") ||
+    normalized.includes("insufficient collateral")
+  ) {
+    return "This Eternl account does not have a suitable ADA-only collateral output. Set up collateral in Eternl or create a small ADA-only output, then try again. Nothing changed.";
+  }
+
   const firstLine = detail.split(/\r?\n/, 1)[0]?.trim() ?? "";
   if (
     !firstLine ||
+    /^(?:\{|\[)/.test(firstLine) ||
     /(?:https?:\/\/|\bat (?:async )?[\w$.<>]+\s*\(|node_modules|_next\/static)/i.test(firstLine)
   ) {
     return fallback;

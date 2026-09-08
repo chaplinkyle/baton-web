@@ -179,7 +179,8 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .page-title h1 { max-width: 880px; margin: 0; font-size: clamp(2.25rem, 4.3vw, 3.5rem); line-height: 1.1; letter-spacing: -.05em; }
 .page-title > p:last-child { max-width: 760px; color: var(--muted); font-size: 1.05rem; }
 .compact-title { padding-bottom: 32px; }
-.error-banner { margin: 0 0 25px; padding: 14px 18px; border: 1px solid #7d474f; border-radius: 8px; color: var(--danger); background: var(--danger-soft); }
+.error-banner { margin: 0 0 25px; padding: 14px 18px; border: 1px solid #7d474f; border-radius: 8px; color: var(--danger); background: var(--danger-soft); scroll-margin-block: 24px; }
+.error-banner:focus { outline: 2px solid var(--danger); outline-offset: 3px; }
 
 .wizard-layout { display: grid; grid-template-columns: 230px 1fr; gap: 26px; align-items: start; }
 .wizard-nav { position: sticky; top: 92px; display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: 0 0 0 1px rgba(41, 43, 49, .35); }
@@ -284,7 +285,8 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .status-orbit { display: flex; align-items: center; justify-content: center; gap: 7px; width: 106px; height: 106px; border: 8px solid var(--signal-soft); border-radius: 50%; color: var(--signal); background: var(--panel); }
 .status-orbit span { font-size: 2.2rem; font-weight: 720; }
 .status-orbit small { color: var(--muted); font-size: .58rem; line-height: 1.35; }
-.status-main .eyebrow { margin-bottom: 6px; }
+.status-confirmation { display: flex; flex-wrap: wrap; gap: 5px 12px; color: var(--signal); font-size: .75rem; font-weight: 750; letter-spacing: .02em; }
+.status-confirmation > span + span { padding-left: 12px; border-left: 1px solid var(--signal-2); }
 .status-main h2 { margin: 0; font-size: 2rem; }
 .status-main p { max-width: 580px; margin: 7px 0 0; color: var(--muted); }
 .status-clock { display: grid; gap: 5px; padding-left: 24px; border-left: 1px solid var(--line); }
@@ -496,6 +498,8 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .vault-status { grid-template-columns: 1fr; }
   .status-main { grid-row: 1; }
   .status-main h2 { font-size: 1.65rem; }
+  .status-confirmation { display: grid; gap: 3px; }
+  .status-confirmation > span + span { padding-left: 0; border-left: 0; }
   .status-orbit { grid-row: 2; justify-self: center; }
   .vault-details, .action-review dl { grid-template-columns: 1fr; }
   .vault-details div, .action-review dl div { border-right: 0; border-bottom: 1px solid var(--line) !important; }

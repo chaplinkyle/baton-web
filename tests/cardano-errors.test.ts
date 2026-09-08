@@ -84,3 +84,29 @@ test("reconnect guidance is not mistaken for an ECONN transport failure", () => 
   assert.equal(isRetryableCardanoReadError(new Error(guidance)), false);
   assert.equal(cardanoErrorMessage(new Error(guidance)), guidance);
 });
+
+test("wallet funding failures become actionable Preprod guidance", () => {
+  const message = cardanoErrorMessage(new Error(
+    "{ Complete: Your wallet does not have enough funds to cover the required assets: {",
+  ));
+
+  assert.match(message, /does not have enough available ADA or selected assets/i);
+  assert.match(message, /Preprod test ADA/i);
+  assert.match(message, /Nothing changed/i);
+  assert.doesNotMatch(message, /\{ Complete|required assets: \{/i);
+});
+
+test("missing collateral explains the safe wallet preparation step", () => {
+  const message = cardanoErrorMessage(new Error("No collateral found in wallet"));
+
+  assert.match(message, /ADA-only collateral output/i);
+  assert.match(message, /Set up collateral in Eternl/i);
+  assert.match(message, /Nothing changed/i);
+});
+
+test("structured runtime fragments never reach the interface", () => {
+  assert.equal(
+    cardanoErrorMessage(new Error("[RuntimeFailure: internal builder state]"), "Safe fallback."),
+    "Safe fallback.",
+  );
+});

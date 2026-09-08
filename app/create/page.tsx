@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Assets } from "@lucid-evolution/lucid";
 import Link from "next/link";
 import { useWallet } from "@/app/providers";
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import {
   type CreateField,
   type CreateValidationIssue,
@@ -270,7 +272,7 @@ export default function CreateVault() {
       setReviewKey(configurationKey);
       setReviewConnection(connection);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Transaction construction failed.");
+      setError(cardanoErrorMessage(cause, "Baton could not prepare this transaction."));
     } finally {
       setBusy(false);
     }
@@ -368,7 +370,7 @@ export default function CreateVault() {
         <p>Choose what to protect, how often you will check in, and how it can be received later. You will review every detail before Eternl asks you to approve anything.</p>
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <ErrorBanner message={error} />}
 
       <div className="wizard-layout">
         <aside className="wizard-nav" aria-label="Creation steps">

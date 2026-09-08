@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import { CARDANO_NETWORK } from "@/lib/config";
 import { parseManifest, type VaultManifest } from "@/lib/manifest";
@@ -52,7 +53,7 @@ export default function VerifyPage() {
         </section>
         <section className="verify-results" aria-live="polite" aria-busy={busy}>
           <p className="eyebrow">PLAN CHECK</p>
-          {error && <div className="error-banner">{error}</div>}
+          {error && <ErrorBanner message={error} />}
           {!error && !lifecycle && <div className="empty-report"><span aria-hidden="true">✓</span><p>Your confirmed schedule and recipient method will appear here.</p></div>}
           {manifest && lifecycle?.kind === "active" && <div className="checks"><div><i>✓</i><span>Plan found on Cardano</span><strong>{shortHash(manifest.policyId, 10)}</strong></div><div><i>✓</i><span>Protected assets found</span><strong>{shortHash(manifest.receiptUnit, 10)}</strong></div><div><i>✓</i><span>Successful check-ins</span><strong>{lifecycle.state.sequence}</strong></div><div><i>✓</i><span>Handoff available after</span><strong>{formatUtc(lifecycle.state.releaseAtMs)}</strong></div><div><i>✓</i><span>Recipient method</span><strong>{manifest.releaseMode === "bearer" ? "Recovery token" : "Chosen address"}</strong></div></div>}
           {manifest && lifecycle?.kind === "completed" && <div className="checks"><div><i>✓</i><span>Plan completion confirmed</span><strong>{shortHash(manifest.terminalReceiptUnit, 10)}</strong></div><div><i>✓</i><span>Final assets located</span><strong>{shortHash(lifecycle.state.utxo.address, 10)}</strong></div><div><i>✓</i><span>Active plan cannot resume</span><strong>Final</strong></div></div>}

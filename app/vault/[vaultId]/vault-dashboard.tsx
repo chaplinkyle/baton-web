@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { cardanoErrorMessage } from "@/lib/cardano-errors";
 import { EXPLORER_URL } from "@/lib/config";
 import {
@@ -330,7 +331,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         {manifest && <button className="button secondary" onClick={() => downloadManifest(manifest)}>Download plan file</button>}
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <ErrorBanner message={error} />}
       {loading && <div className="vault-loading" role="status"><span className="status-dot" aria-hidden="true" /><div><strong>Checking this plan on Cardano</strong><small>Reading the confirmed assets, schedule, and latest check-in.</small></div></div>}
       {!loading && !manifest && <label className="manifest-drop"><input type="file" accept="application/json,.json" aria-label="Choose a saved Baton plan file" onChange={(e) => importFile(e.target.files?.[0])} /><span className="manifest-drop-button" aria-hidden="true">Choose file</span><span className="manifest-drop-copy"><strong>Open your saved plan file</strong><small>{fileName ?? "It contains no seed phrase or private key."}</small></span></label>}
 
@@ -339,7 +340,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       {manifest && state && <>
         <section className={`vault-status status-${status}`}>
           <div className="status-orbit"><span>{missed}</span><small>OF {manifest.missesToRelease}<br />MISSED</small></div>
-          <div className="status-main"><span className="eyebrow">CONFIRMED ON CARDANO · {state.sequence} CHECK-IN{state.sequence === 1 ? "" : "S"}</span><h2>{statusLabels[status]}</h2><p>{status === "claimable"
+          <div className="status-main"><span className="status-confirmation"><span>CARDANO CONFIRMED</span><span>{state.sequence} CHECK-IN{state.sequence === 1 ? "" : "S"}</span></span><h2>{statusLabels[status]}</h2><p>{status === "claimable"
             ? "The full waiting period has passed. Your chosen recipient method can now complete the handoff."
             : status === "missed"
               ? `You have missed ${missed} of ${manifest.missesToRelease} allowed check-ins. Check in now to reset the waiting period.`
