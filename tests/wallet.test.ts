@@ -22,6 +22,10 @@ import { CML } from "@lucid-evolution/lucid";
 
 const OWNER_ADDRESS = "addr_test1qztr0p45temrsjcy6z4dpfardnruyftylxj077c6rrket3sjrc6lv8zv5re7krwmg06djl866jl3ygd9zea2cv0aydtq6fqvee";
 const CHECK_IN_ADDRESS = "addr_test1vptypkdle25xnm2ntne4vsg8jwpe064wkuj9kafqnqx4zysclztwf";
+const NETWORK_PROOF_OUT_REF = {
+  txHash: "ab".repeat(32),
+  outputIndex: 0,
+};
 
 test("wallet actions describe every discovery and connection state consistently", () => {
   assert.equal(walletConnectionActionLabel("idle", "detecting"), "Finding Eternl…");
@@ -162,6 +166,8 @@ test("Cardano provider timeouts never expose runtime internals as wallet errors"
 test("an authorized wallet session refreshes its account without enable", async () => {
   let networkReads = 0;
   let addressReads = 0;
+  let walletUtxoReads = 0;
+  let providerUtxoReads = 0;
   const api = {
     getNetworkId: async () => {
       networkReads += 1;
@@ -173,6 +179,18 @@ test("an authorized wallet session refreshes its account without enable", async 
       address: async () => {
         addressReads += 1;
         return CHECK_IN_ADDRESS;
+      },
+      getUtxos: async () => {
+        walletUtxoReads += 1;
+        return [NETWORK_PROOF_OUT_REF];
+      },
+    }),
+    config: () => ({
+      provider: {
+        getUtxosByOutRef: async () => {
+          providerUtxoReads += 1;
+          return [NETWORK_PROOF_OUT_REF];
+        },
       },
     }),
   };
@@ -200,6 +218,9 @@ test("an authorized wallet session refreshes its account without enable", async 
   ]);
   assert.equal(networkReads, 1);
   assert.equal(addressReads, 1);
+  assert.equal(walletUtxoReads, 1);
+  assert.equal(providerUtxoReads, 1);
+  assert.equal(refreshed.networkMagic, 1);
 });
 
 test("an Eternl account exposes every key payment credential for plan discovery", async () => {
@@ -221,7 +242,17 @@ test("an Eternl account exposes every key payment credential for plan discovery"
   };
   const connection = {
     api,
-    lucid: { wallet: () => ({ address: async () => CHECK_IN_ADDRESS }) },
+    lucid: {
+      wallet: () => ({
+        address: async () => CHECK_IN_ADDRESS,
+        getUtxos: async () => [NETWORK_PROOF_OUT_REF],
+      }),
+      config: () => ({
+        provider: {
+          getUtxosByOutRef: async () => [NETWORK_PROOF_OUT_REF],
+        },
+      }),
+    },
     address: CHECK_IN_ADDRESS,
     paymentKeyHash: "5640d9bfcaa869ed535cf3564107938397eaaeb7245b7520980d5112",
     paymentKeyHashes: [
@@ -238,6 +269,36 @@ test("an Eternl account exposes every key payment credential for plan discovery"
     "5640d9bfcaa869ed535cf3564107938397eaaeb7245b7520980d5112",
     "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
   ]);
+  assert.equal(refreshed.networkMagic, 1);
+});
+
+test("an older testnet-only wallet must match a confirmed Preprod UTxO", async () => {
+  const connection = {
+    api: { getNetworkId: async () => 0 },
+    lucid: {
+      wallet: () => ({
+        getUtxos: async () => [NETWORK_PROOF_OUT_REF],
+        address: async () => OWNER_ADDRESS,
+      }),
+      config: () => ({
+        provider: { getUtxosByOutRef: async () => [] },
+      }),
+    },
+    address: OWNER_ADDRESS,
+    paymentKeyHash: "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
+    paymentKeyHashes: [
+      "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
+    ],
+    networkId: 0,
+    networkMagic: null,
+    walletName: "Eternl",
+    apiVersion: "1.0.0",
+  } as unknown as EternlConnection;
+
+  await assert.rejects(
+    refreshEternlConnection(connection),
+    /could not match.*confirmed UTxO on Preprod/i,
+  );
 });
 
 test("an authorized wallet refresh still rejects the wrong network", async () => {

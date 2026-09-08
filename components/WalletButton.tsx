@@ -245,7 +245,7 @@ export function WalletButton() {
               </div>
               <p>
                 {exactNetworkConfirmed
-                  ? `Eternl identified this account as Cardano ${CARDANO_NETWORK}. Baton will search all ${wallet.connection.paymentKeyHashes.length} payment address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} exposed by this account.`
+                  ? `Baton confirmed this account is on Cardano ${CARDANO_NETWORK}. It will search all ${wallet.connection.paymentKeyHashes.length} payment address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} exposed by this account.`
                   : "This Eternl version identifies testnet, but not Preprod versus Preview. Confirm that Preprod is selected before preparing a transaction."}
               </p>
               <div className="wallet-panel-actions wallet-connected-actions">

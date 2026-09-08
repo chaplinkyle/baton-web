@@ -15,6 +15,9 @@ import {
 const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
 const ADDRESS_DISCOVERY_TIMEOUT_MS = 4_000;
+// A single matching out-ref proves the configured chain. Cap the query to
+// avoid disclosing an account's complete UTxO set to the public indexer.
+const NETWORK_PROOF_UTXO_LIMIT = 5;
 
 export type WalletAvailability = "detecting" | "available" | "missing";
 export type WalletIssueKind =
@@ -317,6 +320,40 @@ async function readNetworkMagic(api: EternlWalletApi) {
   );
 }
 
+async function proveConfiguredNetworkFromWalletUtxo(lucid: LucidEvolution) {
+  const walletUtxos = await withWalletTimeout(
+    lucid.wallet().getUtxos(),
+    "Reading Eternl UTxOs for network confirmation",
+    READ_TIMEOUT_MS,
+  );
+  const candidates = walletUtxos.slice(0, NETWORK_PROOF_UTXO_LIMIT);
+  const provider = lucid.config().provider;
+  if (!provider || candidates.length === 0) {
+    throw new Error(
+      `Baton could not prove that this account is on ${CARDANO_NETWORK}. This release requires ${CARDANO_NETWORK}; select a funded account on that network or update Eternl, then reconnect.`,
+    );
+  }
+
+  const confirmed = await withCardanoReadRetry(
+    () => provider.getUtxosByOutRef(candidates.map(({ txHash, outputIndex }) => ({
+      txHash,
+      outputIndex,
+    }))),
+    3,
+  );
+  const confirmedReferences = new Set(
+    confirmed.map(({ txHash, outputIndex }) => `${txHash}#${outputIndex}`),
+  );
+  if (!candidates.some(
+    ({ txHash, outputIndex }) => confirmedReferences.has(`${txHash}#${outputIndex}`),
+  )) {
+    throw new Error(
+      `Baton could not match this account to a confirmed UTxO on ${CARDANO_NETWORK}. This release requires ${CARDANO_NETWORK}; wait for test funds to confirm or switch Eternl to that network, then reconnect.`,
+    );
+  }
+  return EXPECTED_NETWORK_MAGIC;
+}
+
 async function readWalletIdentity(api: EternlWalletApi, lucid: LucidEvolution) {
   const networkId = await withWalletTimeout(
     api.getNetworkId(),
@@ -329,11 +366,14 @@ async function readWalletIdentity(api: EternlWalletApi, lucid: LucidEvolution) {
     );
   }
 
-  const networkMagic = await readNetworkMagic(api);
+  let networkMagic = await readNetworkMagic(api);
   if (networkMagic !== null && networkMagic !== EXPECTED_NETWORK_MAGIC) {
     throw new Error(
       `Eternl is connected to network magic ${networkMagic}; this release requires ${CARDANO_NETWORK} (network magic ${EXPECTED_NETWORK_MAGIC}). Switch networks in Eternl and reconnect.`,
     );
+  }
+  if (networkMagic === null && CARDANO_NETWORK !== "Mainnet") {
+    networkMagic = await proveConfiguredNetworkFromWalletUtxo(lucid);
   }
 
   const address = await withWalletTimeout(

@@ -23,7 +23,8 @@ export const EXPECTED_NETWORK_ID = CARDANO_NETWORK === "Mainnet" ? 1 : 0;
 
 // CIP-30's network ID distinguishes mainnet from testnets, but Preprod and
 // Preview both use ID 0. CIP-142-capable wallets expose the network magic that
-// identifies the exact chain.
+// identifies the exact chain; older wallets must prove it from a confirmed
+// UTxO before Baton treats their connection as usable.
 export const EXPECTED_NETWORK_MAGIC =
   CARDANO_NETWORK === "Mainnet"
     ? 764_824_073

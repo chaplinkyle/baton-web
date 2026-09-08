@@ -17,6 +17,9 @@ only in response to a user action. The adapter uses CIP-30 to:
 
 - enable the connection;
 - verify network identity;
+- use CIP-142 network magic when Eternl exposes it, otherwise require at least
+  one wallet UTxO to match the configured Cardano chain before treating a
+  generic testnet connection as Preprod;
 - read user-approved UTxOs and a change address;
 - request a transaction witness with `signTx`;
 - cryptographically verify every returned key witness and the required
