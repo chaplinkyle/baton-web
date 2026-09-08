@@ -22,6 +22,7 @@ import {
 import {
   formatAda,
   formatCheckInPeriod,
+  formatLocal,
   formatUtc,
   missedCount,
   nextCheckInAt,
@@ -64,6 +65,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const [submissionConfirmed, setSubmissionConfirmed] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [clock, setClock] = useState(() => Date.now());
+  const [localTimeZone, setLocalTimeZone] = useState<string | null>(null);
   const [walletRoleResult, setWalletRoleResult] = useState<WalletRoleResult | null>(null);
   const refreshVersionRef = useRef(0);
   const walletReady = isWalletSessionReady(
@@ -75,8 +77,17 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     : null;
 
   useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setLocalTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+      }
+    });
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
-    return () => window.clearInterval(timer);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -337,6 +348,12 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         ? `Chosen address · ${shortHash(manifest.destination, 12)}`
         : "Connected recovery-token account"
       : null;
+  const planTime = (timestamp: number) => (
+    <time className="time-pair" dateTime={new Date(timestamp).toISOString()}>
+      <strong>{formatLocal(timestamp, localTimeZone ?? "UTC")}</strong>
+      <small>Exact UTC · {formatUtc(timestamp)}</small>
+    </time>
+  );
 
   return (
     <div className="page-shell vault-shell">
@@ -358,12 +375,21 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
             ? "The full waiting period has passed. Your chosen recipient method can now complete the handoff."
             : status === "missed"
               ? `You have missed ${missed} of ${manifest.missesToRelease} allowed check-ins. Check in now to reset the waiting period.`
-              : `Check in by ${formatUtc(nextCheckIn!)} to stay on schedule.`}</p></div>
-          {scheduleMoment && <div className="status-clock"><span>{scheduleMoment.label}</span><strong>{formatUtc(scheduleMoment.at)}</strong><small>{scheduleMoment.detail}</small></div>}
+              : `Check in by ${formatLocal(nextCheckIn!, localTimeZone ?? "UTC")} to stay on schedule.`}</p></div>
+          {scheduleMoment && <div className="status-clock"><span>{scheduleMoment.label}</span>{planTime(scheduleMoment.at)}<small>{scheduleMoment.detail}</small></div>}
         </section>
 
         <section className="vault-grid">
-          <div className="vault-details"><div><span>PLAN ID</span><strong className="mono">{shortHash(manifest.receiptUnit, 14)}</strong></div><div><span>PROTECTED ADDRESS</span><strong className="mono">{shortHash(manifest.validatorAddress, 14)}</strong></div><div><span>CHECK IN</span><strong>{formatCheckInPeriod(manifest.checkInPeriodMs)}</strong></div><div><span>RECIPIENT METHOD</span><strong>{manifest.releaseMode === "bearer" ? "Recovery token" : "Chosen address"}</strong></div><div><span>LAST CHECK-IN</span><strong>{formatUtc(state.lastCheckInAtMs)}</strong></div><div><span>WHAT IS PROTECTED</span><strong>{formatAda(state.utxo.assets.lovelace ?? 0n)} + {protectedAssetCount === 0 ? "no other assets" : `${protectedAssetCount} other asset${protectedAssetCount === 1 ? "" : "s"}`}</strong></div></div>
+          <div className="vault-details">
+            <div><span>PLAN ID</span><strong className="mono">{shortHash(manifest.receiptUnit, 14)}</strong></div>
+            <div><span>PROTECTED ADDRESS</span><strong className="mono">{shortHash(manifest.validatorAddress, 14)}</strong></div>
+            <div><span>CHECK IN</span><strong>{formatCheckInPeriod(manifest.checkInPeriodMs)}</strong></div>
+            <div><span>RECIPIENT METHOD</span><strong>{manifest.releaseMode === "bearer" ? "Recovery token" : "Chosen address"}</strong></div>
+            <div><span>LAST CHECK-IN</span>{planTime(state.lastCheckInAtMs)}</div>
+            <div><span>CHECK-IN DEADLINE</span>{status === "claimable" ? <strong>Waiting period ended</strong> : planTime(nextCheckIn!)}</div>
+            <div><span>FINAL HANDOFF TIME</span>{planTime(state.releaseAtMs)}</div>
+            <div><span>WHAT IS PROTECTED</span><strong>{formatAda(state.utxo.assets.lovelace ?? 0n)} + {protectedAssetCount === 0 ? "no other assets" : `${protectedAssetCount} other asset${protectedAssetCount === 1 ? "" : "s"}`}</strong></div>
+          </div>
           <div className="action-panel">
             <p className="eyebrow">WHAT YOU CAN DO NOW</p>
             {!wallet.connection ? <div className="action-guidance">

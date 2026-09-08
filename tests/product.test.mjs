@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   DAY_MS,
   formatCheckInPeriod,
+  formatLocal,
   formatMissAllowance,
+  formatUtc,
   missedCount,
   nextCheckInAt,
   releaseAt,
@@ -34,6 +36,12 @@ test("schedule summaries remain grammatical and screen-reader friendly", () => {
   assert.equal(formatMissAllowance(1), "1 miss allowed");
   assert.equal(formatMissAllowance(4), "4 misses allowed");
   assert.equal(formatMissAllowance(1_000), "1,000 misses allowed");
+});
+
+test("plan times provide both a local reading and an exact UTC reference", () => {
+  const timestamp = Date.UTC(2026, 8, 8, 4, 15);
+  assert.equal(formatUtc(timestamp), "Sep 8, 2026, 4:15 AM UTC");
+  assert.match(formatLocal(timestamp, "America/Chicago"), /Sep 7, 2026, 11:15 PM (?:CDT|GMT-5)/);
 });
 
 test("2,000 generated schedules preserve every missed-boundary invariant", () => {

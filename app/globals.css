@@ -300,6 +300,8 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .status-clock span { color: var(--dim); font-size: .66rem; font-weight: 700; }
 .status-clock strong { color: var(--amber); }
 .status-clock small { color: var(--muted); }
+.time-pair { display: grid; gap: 3px; }
+.time-pair small { color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.45; }
 .status-claimable { border-color: #6f5838; background: var(--amber-soft); }
 .vault-grid { display: grid; grid-template-columns: 1.35fr .65fr; gap: 22px; margin-top: 22px; }
 .vault-details { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }

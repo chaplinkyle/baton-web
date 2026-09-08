@@ -80,3 +80,15 @@ export function formatUtc(timestamp: number) {
     timeZone: "UTC",
   }).format(timestamp) + " UTC";
 }
+
+export function formatLocal(timestamp: number, timeZone?: string) {
+  return new Intl.DateTimeFormat("en", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+    timeZoneName: "short",
+  }).format(timestamp);
+}
