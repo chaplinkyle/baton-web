@@ -10,8 +10,8 @@ import {
   type EternlConnection,
   isExactWalletNetwork,
   isWalletSessionReady,
+  resultForWalletSession,
   reviewForWalletSession,
-  walletIdentityKey,
   walletErrorMessage,
 } from "@/lib/eternl";
 import {
@@ -41,7 +41,8 @@ import type {
 } from "@/lib/vault-state";
 
 type WalletRoleResult = {
-  key: string;
+  connection: EternlConnection;
+  creationTx: string;
   roles: PlanRole[];
   error: string | null;
 };
@@ -100,7 +101,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     let cancelled = false;
     const connection = wallet.connection;
     if (!manifest || !connection || wallet.revalidating) return;
-    const key = `${manifest.creationTx}:${walletIdentityKey(connection)}`;
+    const creationTx = manifest.creationTx;
 
     void (async () => {
       try {
@@ -108,7 +109,8 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         const assets = combineWalletAssets(await connection.lucid.wallet().getUtxos());
         if (!cancelled) {
           setWalletRoleResult({
-            key,
+            connection,
+            creationTx,
             roles: rolesForManifest(manifest, connection.paymentKeyHashes, assets),
             error: null,
           });
@@ -116,7 +118,8 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       } catch {
         if (!cancelled) {
           setWalletRoleResult({
-            key,
+            connection,
+            creationTx,
             roles: [],
             error: "Baton could not confirm what this Eternl account can do. Reopen Eternl, confirm the selected account, and reconnect.",
           });
@@ -345,15 +348,19 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
         (unit) => unit !== "lovelace" && unit !== manifest.receiptUnit,
       ).length
     : 0;
-  const walletRoleKey = manifest && wallet.connection
-    ? `${manifest.creationTx}:${walletIdentityKey(wallet.connection)}`
-    : null;
-  const currentWalletRoleResult = walletRoleKey && walletRoleResult?.key === walletRoleKey
-    ? walletRoleResult
+  const sessionWalletRoleResult = resultForWalletSession(
+    walletRoleResult,
+    walletRoleResult?.connection,
+    wallet.connection,
+  );
+  const currentWalletRoleResult = manifest &&
+      sessionWalletRoleResult?.creationTx === manifest.creationTx
+    ? sessionWalletRoleResult
     : null;
   const walletRoles = currentWalletRoleResult?.roles ?? [];
   const checkingWalletRoles = Boolean(
-    wallet.revalidating || (walletRoleKey && !currentWalletRoleResult),
+    wallet.revalidating ||
+      (manifest && wallet.connection && !currentWalletRoleResult),
   );
   const walletRoleError = currentWalletRoleResult?.error ?? null;
   const actions = manifest
