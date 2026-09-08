@@ -334,7 +334,7 @@ export default function PlansPage() {
             <article className={`plan-card ${status ? `plan-${status}` : ""}`} key={plan.manifest.creationTx}>
               <div className="plan-card-head">
                 <div>
-                  <span className="plan-id">PLAN {shortHash(plan.manifest.creationTx, 7).toUpperCase()}</span>
+                  <span className="plan-id">PLAN {shortHash(plan.manifest.policyId, 7).toUpperCase()}</span>
                   <h2>{plan.lifecycle?.kind === "completed" ? "Completed plan" : status ? statusLabels[status] : "Saved plan"}</h2>
                 </div>
                 <div className="plan-roles">

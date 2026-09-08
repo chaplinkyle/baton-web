@@ -434,7 +434,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   return (
     <div className="page-shell vault-shell">
       <header className="page-title vault-title">
-        <div><p className="eyebrow">YOUR HANDOFF PLAN · {shortHash(vaultId, 6).toUpperCase()}</p><h1>{loading ? "Checking Cardano…" : !manifest ? "Open your Baton plan" : completed ? "This plan is complete" : "Your Baton plan"}</h1></div>
+        <div><p className="eyebrow">YOUR HANDOFF PLAN · {shortHash(manifest?.policyId ?? vaultId, 6).toUpperCase()}</p><h1>{loading ? "Checking Cardano…" : !manifest ? "Open your Baton plan" : completed ? "This plan is complete" : "Your Baton plan"}</h1></div>
         {manifest && <button className="button secondary" onClick={() => downloadManifest(manifest)}>Download plan file</button>}
       </header>
 
@@ -457,7 +457,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
 
         <section className="vault-grid">
           <div className="vault-details">
-            <div><span>PLAN ID</span><strong className="mono">{shortHash(manifest.receiptUnit, 14)}</strong></div>
+            <div><span>PLAN ID</span><strong className="mono">{shortHash(manifest.policyId, 14)}</strong></div>
             <div><span>PROTECTED ADDRESS</span><strong className="mono">{shortHash(manifest.validatorAddress, 14)}</strong></div>
             <div><span>CHECK IN</span><strong>{formatCheckInPeriod(manifest.checkInPeriodMs)}</strong></div>
             <div><span>RECIPIENT METHOD</span><strong>{manifest.releaseMode === "bearer" ? "Recovery token" : "Chosen address"}</strong></div>

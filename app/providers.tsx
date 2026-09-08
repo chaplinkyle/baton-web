@@ -91,6 +91,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const operationVersionRef = useRef(0);
   const reconnectSuppressedRef = useRef(false);
   const reconnectPreferenceLoadedRef = useRef(false);
+  const detectionStartedAtRef = useRef<number | null>(null);
 
   const establishConnection = useCallback(
     async (mode: ConnectionMode = "manual") => {
@@ -285,7 +286,12 @@ export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const startedAt = Date.now();
+    // The extension-injection grace period belongs to this page session, not
+    // to each connection-state change. Reusing its original start prevents a
+    // wallet that disappears later from briefly regressing to "detecting"
+    // after Baton has already established that it is missing.
+    const startedAt = detectionStartedAtRef.current ?? Date.now();
+    detectionStartedAtRef.current = startedAt;
     if (!reconnectPreferenceLoadedRef.current) {
       reconnectSuppressedRef.current = reconnectSuppressed();
       reconnectPreferenceLoadedRef.current = true;
