@@ -22,7 +22,6 @@ import {
   isWalletNetworkError,
   isEternlAvailable,
   refreshEternlConnection,
-  walletIdentityKey,
   walletConnectionActionLabel,
   walletErrorMessage,
   wasEternlAuthorized,
@@ -193,9 +192,12 @@ export function Providers({ children }: { children: ReactNode }) {
       if (operationVersionRef.current !== operationVersion) return;
       connectedRef.current = true;
       setIssue(null);
-      if (walletIdentityKey(nextConnection) !== walletIdentityKey(current)) {
-        setConnection(nextConnection);
-      }
+      // A successful refresh starts a new wallet session even when the
+      // account identity is unchanged. UTxOs, balances, and transaction
+      // validity can change while Baton is in the background; replacing the
+      // object invalidates every review and asset selection bound to the old
+      // session by reference.
+      setConnection(nextConnection);
     } catch (cause) {
       if (operationVersionRef.current !== operationVersion) return;
       if (isWalletAccountChangeError(cause)) {
@@ -318,14 +320,21 @@ export function Providers({ children }: { children: ReactNode }) {
       }
       void discover();
     };
+    const rediscoverWhenVisible = () => {
+      if (document.visibilityState === "visible") rediscover();
+    };
 
     void discover();
     window.addEventListener("focus", rediscover);
+    window.addEventListener("pageshow", rediscover);
+    document.addEventListener("visibilitychange", rediscoverWhenVisible);
     window.addEventListener("cardano#initialized", rediscover);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
       window.removeEventListener("focus", rediscover);
+      window.removeEventListener("pageshow", rediscover);
+      document.removeEventListener("visibilitychange", rediscoverWhenVisible);
       window.removeEventListener("cardano#initialized", rediscover);
     };
   }, [connection, establishConnection, refreshConnection]);
