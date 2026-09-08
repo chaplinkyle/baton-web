@@ -80,7 +80,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-pending-note { margin-top: 18px; padding: 11px 12px; border: 1px solid var(--signal-2); border-radius: 7px; color: var(--signal); background: var(--signal-soft); font-size: .76rem; font-weight: 650; text-align: center; }
 
 .hero { display: grid; grid-template-columns: 1.08fr .92fr; gap: 48px; align-items: center; min-height: 0; padding-block: var(--section-space); }
-.hero h1 { max-width: 720px; margin: 0; font-size: clamp(2.5rem, 4.5vw, 4rem); line-height: 1.08; letter-spacing: -.055em; }
+.hero h1 { max-width: 720px; margin: 0; font-size: clamp(2.5rem, 4.5vw, 3.75rem); line-height: 1.08; letter-spacing: -.055em; }
 .hero-lede { max-width: 660px; margin: 24px 0 0; color: var(--muted); font-size: 1.06rem; line-height: 1.68; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
 .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: transparent; font-weight: 500; font-size: .86rem; cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease; }
@@ -91,7 +91,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .trust-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 26px; color: var(--dim); font-size: .74rem; }
 .trust-row span::before { content: "✓"; margin-right: 6px; color: var(--signal); font-weight: 800; }
 
-.hero-stage { position: relative; display: grid; justify-items: center; min-height: 610px; isolation: isolate; }
+.hero-stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; min-height: 610px; isolation: isolate; }
 .hero-stage::before { content: ""; position: absolute; z-index: -1; top: 18px; width: min(100%, 470px); aspect-ratio: 1; border: 1px solid rgba(181, 171, 252, .16); border-radius: 50%; background: radial-gradient(circle, rgba(181, 171, 252, .1), rgba(142, 187, 173, .025) 55%, transparent 70%); }
 .hero-art { width: min(100%, 425px); margin-top: -58px; pointer-events: none; }
 .hero-art img { display: block; width: 100%; height: auto; filter: drop-shadow(0 26px 36px rgba(0, 0, 0, .24)); }
@@ -430,7 +430,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .site-header nav { display: flex; grid-column: 1 / -1; grid-row: 2; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); }
   .wallet-slot { grid-column: 2; grid-row: 1; }
   .wallet-panel { top: 117px; max-height: calc(100dvh - 133px); }
-  .hero { grid-template-columns: 1fr; gap: 55px; min-height: 0; }
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 55px; min-height: 0; }
   .hero-stage { width: min(100%, 620px); min-height: 570px; justify-self: center; }
   .hero-art { width: min(78vw, 410px); }
   .handoff-card { justify-self: center; }
@@ -471,8 +471,8 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .hero-actions { flex-direction: column; }
   .hero-stage { min-height: 500px; }
   .hero-stage::before { top: 32px; }
-  .hero-art { width: min(92vw, 360px); margin-top: -24px; }
-  .hero-stage .handoff-card { width: 100%; margin-top: -132px; }
+  .hero-art { width: min(100%, 410px); margin-top: -24px; }
+  .hero-stage .handoff-card { width: min(100%, 430px); max-width: 430px; margin-top: -132px; }
   .care-facts { grid-template-columns: 1fr; }
   .care-facts div { border-right: 0; border-bottom: 1px solid var(--line); }
   .timeline-card { padding: 22px 18px; }
@@ -519,7 +519,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .button:disabled:hover { background: transparent; }
 .button.primary:disabled:hover { background: var(--signal); }
-.hero-copy, .timeline-head > div, .form-heading > div, .connection-card > div, .verify-grid > *, .legal-document, .add-plan-controls { min-width: 0; }
+.hero-copy, .hero-stage, .timeline-head > div, .form-heading > div, .connection-card > div, .verify-grid > *, .legal-document, .add-plan-controls { min-width: 0; }
 .verify-input { grid-template-columns: minmax(0, 1fr); }
 .manifest-drop > * { min-width: 0; }
 .page-title > p:last-child { margin: 16px 0 0; }
