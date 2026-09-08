@@ -66,7 +66,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-panel-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding-right: 34px; }
 .wallet-panel-head > div { display: grid; min-width: 0; }
 .wallet-panel-head span { color: var(--muted); font-size: .72rem; }
-.wallet-panel-head strong { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; font-size: .9rem; }
+.wallet-panel-head strong { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
 .wallet-panel p { margin: 15px 0 0; color: var(--muted); font-size: .79rem; line-height: 1.55; }
 .wallet-network { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 8px; border: 1px solid rgba(142, 187, 173, .4); border-radius: 999px; color: #b9ddd2 !important; background: var(--handoff-soft); }
 .wallet-network i { width: 6px; height: 6px; border-radius: 50%; background: #7fc6ad; }
@@ -303,7 +303,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .time-pair { display: grid; gap: 3px; }
 .time-pair small { color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.45; }
 .status-claimable { border-color: #6f5838; background: var(--amber-soft); }
-.vault-grid { display: grid; grid-template-columns: 1.35fr .65fr; gap: 22px; margin-top: 22px; }
+.vault-grid { display: grid; grid-template-columns: 1.35fr .65fr; align-items: start; gap: 22px; margin-top: 22px; }
 .vault-details { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 .vault-details div { min-width: 0; padding: 21px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .vault-details div:nth-child(even) { border-right: 0; }
@@ -686,7 +686,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
   .wallet-panel { right: var(--page-gutter); left: var(--page-gutter); width: auto; }
   .wallet-panel-head { align-items: start; flex-direction: column; gap: 10px; }
   .wallet-panel-head > div { width: 100%; }
-  .wallet-panel-head strong { overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  .wallet-panel-head strong { overflow: visible; text-overflow: clip; overflow-wrap: anywhere; white-space: normal; }
   .tx-review-head { gap: 12px; flex-wrap: wrap; }
 }
 

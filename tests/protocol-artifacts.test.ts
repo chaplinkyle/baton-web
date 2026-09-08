@@ -5,6 +5,11 @@ import test from "node:test";
 import currentBlueprint from "../lib/plutus.json";
 import legacyBlueprint from "../lib/plutus.rc9.json";
 import { protocolArtifactFor } from "../lib/protocol-artifacts";
+import {
+  BATON_RECEIPT_NAMES,
+  LEGACY_RC9_RECEIPT_NAMES,
+  receiptDisplayName,
+} from "../lib/protocol-names";
 
 function sha256(relativePath: string) {
   return createHash("sha256")
@@ -47,5 +52,17 @@ test("unknown receipt families cannot borrow a published artifact identity", () 
   assert.throws(
     () => protocolArtifactFor("NOT_BATON"),
     /does not have a pinned artifact/i,
+  );
+});
+
+test("presents immutable rc.9 receipts as transparent Baton compatibility names", () => {
+  assert.equal(receiptDisplayName(BATON_RECEIPT_NAMES.active), "BATON");
+  assert.equal(
+    receiptDisplayName(LEGACY_RC9_RECEIPT_NAMES.active),
+    "BATON receipt · legacy LAST_SIGNAL",
+  );
+  assert.equal(
+    receiptDisplayName(LEGACY_RC9_RECEIPT_NAMES.complete),
+    "BATON complete receipt · legacy LAST_SIGNAL_DONE",
   );
 });

@@ -24,3 +24,16 @@ export function receiptNamesFor(activeName: string) {
   }
   return null;
 }
+
+export function receiptDisplayName(name: string) {
+  if (name === LEGACY_RC9_RECEIPT_NAMES.active) {
+    return `BATON receipt · legacy ${name}`;
+  }
+  if (name === LEGACY_RC9_RECEIPT_NAMES.complete) {
+    return `BATON complete receipt · legacy ${name}`;
+  }
+  if (name === LEGACY_RC9_RECEIPT_NAMES.recovery) {
+    return `BATON recovery token · legacy ${name}`;
+  }
+  return name;
+}

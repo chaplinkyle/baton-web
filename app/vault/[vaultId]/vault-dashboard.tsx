@@ -33,6 +33,7 @@ import {
 import { availablePlanActions } from "@/lib/plan-actions";
 import type { PlanHistoryEntry, PlanRole } from "@/lib/plan-discovery";
 import { protocolArtifactFor } from "@/lib/protocol-artifacts";
+import { receiptDisplayName } from "@/lib/protocol-names";
 import type {
   ActionReview,
   CompletedVaultState,
@@ -543,7 +544,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
           <div><dt>APPLIED POLICY ID</dt><dd className="mono">{shortHash(manifest.policyId, 12)}</dd></div>
           <div><dt>BLUEPRINT SHA-256</dt><dd className="mono">{shortHash(protocolArtifact.blueprintSha256, 12)}</dd></div>
           <div><dt>AIKEN COMPILER</dt><dd>{protocolArtifact.compiler}</dd></div>
-          <div><dt>CURRENT RECEIPT</dt><dd>{completed ? manifest.terminalReceiptName : manifest.receiptName}</dd></div>
+          <div><dt>CURRENT RECEIPT</dt><dd>{receiptDisplayName(completed ? manifest.terminalReceiptName : manifest.receiptName)}</dd></div>
         </dl>
         <div className="protocol-links">
           <a href={`${EXPLORER_URL}/address/${manifest.validatorAddress}`} target="_blank" rel="noreferrer">Applied validator ↗</a>

@@ -9,6 +9,7 @@ import {
   isWalletSessionReady,
   refreshEternlConnection,
   reviewForWalletSession,
+  selectEternlProvider,
   shouldOfferWalletAppHandoff,
   WalletRequestTimeoutError,
   walletConnectionActionLabel,
@@ -26,6 +27,25 @@ const NETWORK_PROOF_OUT_REF = {
   txHash: "ab".repeat(32),
   outputIndex: 0,
 };
+
+test("wallet discovery prefers Eternl and supports its legacy ccvault alias", () => {
+  const current = {
+    enable: async () => ({}),
+    isEnabled: async () => true,
+    name: "Eternl",
+  };
+  const legacy = {
+    enable: async () => ({}),
+    isEnabled: async () => true,
+    name: "ccvault",
+  };
+
+  assert.equal(selectEternlProvider({ eternl: current, ccvault: legacy }), current);
+  assert.equal(selectEternlProvider({ ccvault: legacy }), legacy);
+  assert.equal(selectEternlProvider({ eternl: {}, ccvault: legacy }), legacy);
+  assert.equal(selectEternlProvider({ eternl: {} }), null);
+  assert.equal(selectEternlProvider(undefined), null);
+});
 
 test("wallet actions describe every discovery and connection state consistently", () => {
   assert.equal(walletConnectionActionLabel("idle", "detecting"), "Finding Eternl…");

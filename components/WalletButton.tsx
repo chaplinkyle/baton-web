@@ -236,7 +236,7 @@ export function WalletButton() {
               <div className="wallet-panel-head">
                 <div>
                   <span>Eternl connected</span>
-                  <strong>{shortHash(wallet.connection.address, 12)}</strong>
+                  <strong title={wallet.connection.address}>{shortHash(wallet.connection.address, 8)}</strong>
                 </div>
                 <span className={`wallet-network ${exactNetworkConfirmed ? "" : "manual"}`}>
                   <i aria-hidden="true" />

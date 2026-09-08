@@ -13,7 +13,10 @@ the first audited release.
 ## Connection contract
 
 The browser detects Eternl's injected wallet provider and asks for permission
-only in response to a user action. The adapter uses CIP-30 to:
+only in response to a user action. It prefers Eternl's current `eternl`
+namespace and supports the historical `ccvault` alias used by older installs;
+both entries must expose a valid CIP-30 bridge before Baton accepts them. The
+adapter uses CIP-30 to:
 
 - enable the connection;
 - verify network identity;

@@ -268,7 +268,28 @@ export function walletErrorMessage(
 
 export function getEternlProvider(): EternlProvider | null {
   if (typeof window === "undefined") return null;
-  return (window.cardano?.eternl as EternlProvider | undefined) ?? null;
+  return selectEternlProvider(window.cardano);
+}
+
+function isCip30Provider(value: unknown): value is EternlProvider {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<EternlProvider>;
+  return typeof candidate.enable === "function" &&
+    typeof candidate.isEnabled === "function";
+}
+
+/**
+ * Prefer Eternl's current CIP-30 namespace, while retaining compatibility
+ * with installations that expose only the wallet's historical `ccvault`
+ * alias. Validate the bridge before treating either injected value as a
+ * wallet so another extension cannot leave Baton stuck on a malformed entry.
+ */
+export function selectEternlProvider(cardano: unknown): EternlProvider | null {
+  if (!cardano || typeof cardano !== "object") return null;
+  const registry = cardano as Record<string, unknown>;
+  if (isCip30Provider(registry.eternl)) return registry.eternl;
+  if (isCip30Provider(registry.ccvault)) return registry.ccvault;
+  return null;
 }
 
 export function isEternlAvailable() {
