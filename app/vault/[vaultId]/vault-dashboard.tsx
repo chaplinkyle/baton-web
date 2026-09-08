@@ -118,7 +118,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   useEffect(() => {
     let cancelled = false;
     const connection = wallet.connection;
-    if (!manifest || !connection || wallet.revalidating) return;
+    if (!manifest || !connection || !walletReady) return;
     const creationTx = manifest.creationTx;
 
     void (async () => {
@@ -146,7 +146,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
     })();
 
     return () => { cancelled = true; };
-  }, [manifest, wallet.connection, wallet.revalidating]);
+  }, [manifest, wallet.connection, walletReady]);
 
   const refresh = useCallback(async (knownManifest: VaultManifest) => {
     const refreshVersion = ++refreshVersionRef.current;
@@ -386,7 +386,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
   const walletRoles = currentWalletRoleResult?.roles ?? [];
   const checkingWalletRoles = Boolean(
     wallet.revalidating ||
-      (manifest && wallet.connection && !currentWalletRoleResult),
+      (walletReady && manifest && wallet.connection && !currentWalletRoleResult),
   );
   const walletRoleError = currentWalletRoleResult?.error ?? null;
   const actions = manifest
@@ -472,6 +472,10 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
               <strong>Connect the wallet for this plan</strong>
               <p>Baton will confirm whether this account owns the plan, checks it in, or holds its recovery token. Connecting does not submit a transaction.</p>
               <button className="connect-inline" onClick={wallet.connect} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>
+            </div> : !walletReady ? <div className="action-guidance">
+              <strong>{wallet.revalidating ? "Confirming this Eternl account" : `${CARDANO_NETWORK} is not verified yet`}</strong>
+              <p>{wallet.revalidating ? "Wallet actions are paused until Baton confirms the selected Preprod account." : `Transactions stay locked until Baton confirms this account on ${CARDANO_NETWORK}. If the account is empty, fund it with test ADA first.`}</p>
+              {!wallet.revalidating && <button className="connect-inline" onClick={() => void wallet.recheckNetwork()}>Recheck {CARDANO_NETWORK}</button>}
             </div> : checkingWalletRoles ? <div className="action-guidance" role="status">
               <strong>{wallet.revalidating ? "Confirming this Eternl account" : "Checking this Eternl account"}</strong>
               <p>{wallet.revalidating ? "Wallet actions are paused until Baton confirms the selected Preprod account." : "Baton is confirming what this wallet can do without submitting a transaction."}</p>

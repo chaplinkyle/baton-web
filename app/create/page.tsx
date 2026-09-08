@@ -138,7 +138,7 @@ export default function CreateVault() {
   useEffect(() => {
     let cancelled = false;
     const connection = wallet.connection;
-    if (!connection) return;
+    if (!connection || !walletReady) return;
     connection.lucid.wallet().getUtxos().then((utxos) => {
       const totals = new Map<string, bigint>();
       for (const utxo of utxos) {
@@ -161,7 +161,7 @@ export default function CreateVault() {
       }
     });
     return () => { cancelled = true; };
-  }, [wallet.connection, walletAssetReload]);
+  }, [wallet.connection, walletAssetReload, walletReady]);
 
   const currentWalletAssetResult = useMemo(
     () => walletReady ? reviewForWalletSession(
@@ -244,8 +244,9 @@ export default function CreateVault() {
     return () => window.clearTimeout(timer);
   }, [activeReview]);
   const protectValues = {
-    connected: walletReady,
-    ownerPaymentKeyHashes: walletReady
+    connected: Boolean(wallet.connection),
+    networkVerified: walletReady,
+    ownerPaymentKeyHashes: wallet.connection
       ? wallet.connection?.paymentKeyHashes
       : undefined,
     ada,
@@ -493,11 +494,13 @@ export default function CreateVault() {
                     : wallet.connection
                       ? exactWalletNetwork
                         ? "Preprod verified for this browser session"
-                        : "Testnet connected · confirm Preprod in Eternl"
+                        : `Testnet account connected · ${CARDANO_NETWORK} proof required before transactions`
                       : "Your wallet approves every transaction and keeps your keys."}</small>
                 </div>
                 {!wallet.connection && <button type="button" className="button secondary" onClick={() => { clearStepIssue("wallet"); void wallet.connect(); }} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}
-                {wallet.connection && <span className={`ready-chip ${exactWalletNetwork && !wallet.revalidating ? "" : "manual"}`}>{wallet.revalidating ? "CHECKING ACCOUNT" : exactWalletNetwork ? `${CARDANO_NETWORK.toUpperCase()} VERIFIED` : `CHECK ${CARDANO_NETWORK.toUpperCase()}`}</span>}
+                {wallet.connection && (wallet.revalidating || exactWalletNetwork
+                  ? <span className={`ready-chip ${exactWalletNetwork && !wallet.revalidating ? "" : "manual"}`}>{wallet.revalidating ? "CHECKING ACCOUNT" : `${CARDANO_NETWORK.toUpperCase()} VERIFIED`}</span>
+                  : <button type="button" className="button secondary" onClick={() => void wallet.recheckNetwork()}>Recheck {CARDANO_NETWORK}</button>)}
               </div>
               {visibleStepIssue?.field === "wallet" && <p className="field-error wizard-field-error" role="alert">{visibleStepIssue.message}</p>}
               <div className="field-grid">

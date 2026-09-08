@@ -17,6 +17,7 @@ const CHECK_IN_ADDRESS = credentialToAddress("Preprod", {
 
 const validProtect = {
   connected: true,
+  networkVerified: true,
   ownerPaymentKeyHashes: [OWNER_KEY],
   ada: "25",
   periodDays: 7,
@@ -36,6 +37,10 @@ test("protect step guides the first invalid field", () => {
       field: "wallet",
       message: "Connect your Preprod Eternl wallet to continue.",
     },
+  );
+  assert.match(
+    validateProtectStep({ ...validProtect, networkVerified: false })?.message ?? "",
+    /not verified.*Preprod/i,
   );
   assert.equal(validateProtectStep({ ...validProtect, ada: "4.99" })?.field, "ada");
   assert.equal(

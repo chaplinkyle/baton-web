@@ -324,6 +324,36 @@ test("an older testnet-only wallet must match a confirmed Preprod UTxO", async (
   );
 });
 
+test("an empty older testnet wallet connects in a transaction-locked state", async () => {
+  const connection = {
+    api: { getNetworkId: async () => 0 },
+    lucid: {
+      wallet: () => ({
+        getUtxos: async () => [],
+        address: async () => OWNER_ADDRESS,
+      }),
+      config: () => ({
+        provider: { getUtxosByOutRef: async () => [] },
+      }),
+    },
+    address: OWNER_ADDRESS,
+    paymentKeyHash: "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
+    paymentKeyHashes: [
+      "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
+    ],
+    networkId: 0,
+    networkMagic: null,
+    walletName: "Eternl",
+    apiVersion: "1.0.0",
+  } as unknown as EternlConnection;
+
+  const refreshed = await refreshEternlConnection(connection);
+  assert.equal(refreshed.address, OWNER_ADDRESS);
+  assert.equal(refreshed.networkMagic, null);
+  assert.equal(isExactWalletNetwork(refreshed), false);
+  assert.equal(isWalletSessionReady(refreshed, false), false);
+});
+
 test("an authorized wallet refresh still rejects the wrong network", async () => {
   const connection = {
     api: { getNetworkId: async () => 1 },
@@ -391,10 +421,18 @@ test("a testnet-only connection is not presented as exact Preprod proof", () => 
   assert.equal(isExactWalletNetwork({ networkId: 0, networkMagic: null }), false);
 });
 
-test("a wallet session cannot authorize actions while it is being revalidated", () => {
-  const connection = { address: OWNER_ADDRESS } as EternlConnection;
+test("a wallet session requires exact network proof and no active revalidation", () => {
+  const connection = {
+    address: OWNER_ADDRESS,
+    networkId: 0,
+    networkMagic: 1,
+  } as EternlConnection;
   assert.equal(isWalletSessionReady(connection, false), true);
   assert.equal(isWalletSessionReady(connection, true), false);
+  assert.equal(
+    isWalletSessionReady({ ...connection, networkMagic: null }, false),
+    false,
+  );
   assert.equal(isWalletSessionReady(null, false), false);
 });
 
@@ -415,6 +453,16 @@ test("transaction refusal confirms that nothing was submitted", () => {
       "transaction",
     ),
     /nothing was signed or submitted/i,
+  );
+});
+
+test("wallet setup errors never expose raw JavaScript internals", () => {
+  assert.equal(
+    walletErrorMessage(
+      new TypeError("Cannot read properties of undefined (reading 'length')"),
+      "Eternl connection failed.",
+    ),
+    "Eternl connection failed.",
   );
 });
 

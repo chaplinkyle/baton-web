@@ -166,7 +166,7 @@ export function WalletButton() {
       <button
         ref={buttonRef}
         type="button"
-        className={`wallet-button ${wallet.connection ? "connected" : ""}`}
+        className={`wallet-button ${wallet.connection ? "connected" : ""} ${wallet.connection && !exactNetworkConfirmed ? "unverified" : ""}`}
         onClick={handlePrimaryClick}
         disabled={wallet.connecting || wallet.availability === "detecting"}
         aria-busy={wallet.revalidating || undefined}
@@ -246,18 +246,24 @@ export function WalletButton() {
                 </div>
                 <span className={`wallet-network ${exactNetworkConfirmed ? "" : "manual"}`}>
                   <i aria-hidden="true" />
-                  {exactNetworkConfirmed ? `${CARDANO_NETWORK} verified` : "Testnet connected"}
+                  {exactNetworkConfirmed ? `${CARDANO_NETWORK} verified` : `${CARDANO_NETWORK} not verified`}
                 </span>
               </div>
               <p>
                 {exactNetworkConfirmed
                   ? `Baton confirmed this account is on Cardano ${CARDANO_NETWORK}. It will search all ${wallet.connection.paymentKeyHashes.length} payment address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} exposed by this account.`
-                  : "This Eternl version identifies testnet, but not Preprod versus Preview. Confirm that Preprod is selected before preparing a transaction."}
+                  : `Eternl confirmed a Cardano testnet account, but this empty account cannot prove ${CARDANO_NETWORK} versus Preview yet. Transactions remain locked until Baton verifies ${CARDANO_NETWORK}.`}
               </p>
-              <div className="wallet-panel-actions wallet-connected-actions">
-                <button type="button" onClick={() => wallet.changeAccount()}>
-                  Change account
-                </button>
+              <div className={`wallet-panel-actions wallet-connected-actions ${exactNetworkConfirmed ? "" : "unverified"}`}>
+                {exactNetworkConfirmed ? (
+                  <button type="button" onClick={() => wallet.changeAccount()}>
+                    Change account
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => void wallet.recheckNetwork()}>
+                    Recheck {CARDANO_NETWORK}
+                  </button>
+                )}
                 <button type="button" onClick={() => void copyAddress()}>
                   {copyStatus === "copied"
                     ? "Address copied"
@@ -265,6 +271,11 @@ export function WalletButton() {
                       ? "Copy failed"
                       : "Copy address"}
                 </button>
+                {!exactNetworkConfirmed && (
+                  <button type="button" onClick={() => wallet.changeAccount()}>
+                    Change account
+                  </button>
+                )}
                 <button type="button" onClick={() => {
                   wallet.disconnect();
                   closePanel(true);
@@ -274,15 +285,19 @@ export function WalletButton() {
               </div>
               {CARDANO_NETWORK !== "Mainnet" && (
                 <p className="wallet-faucet">
-                  Need test ADA? Copy this address, then use the{" "}
+                  {exactNetworkConfirmed
+                    ? "Need test ADA? Copy this address, then use the "
+                    : `To verify ${CARDANO_NETWORK}, select it in Eternl, copy this address, and fund it from the `}
                   <a
                     href={CARDANO_TESTNET_FAUCET_URL}
                     target="_blank"
                     rel="noreferrer"
                   >
                     official Cardano faucet
-                  </a>{" "}
-                  and choose {CARDANO_NETWORK}.
+                  </a>
+                  {exactNetworkConfirmed
+                    ? ` and choose ${CARDANO_NETWORK}.`
+                    : `. After the funds confirm, return here and select Recheck ${CARDANO_NETWORK}.`}
                 </p>
               )}
             </>

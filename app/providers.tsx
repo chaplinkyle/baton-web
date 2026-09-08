@@ -69,6 +69,7 @@ type WalletContextValue = {
   availability: WalletAvailability;
   connectionActionLabel: string;
   connect: () => Promise<void>;
+  recheckNetwork: () => Promise<void>;
   cancelConnection: () => void;
   changeAccount: () => void;
   disconnect: () => void;
@@ -231,6 +232,14 @@ export function Providers({ children }: { children: ReactNode }) {
     }
   }, [establishConnection]);
 
+  const recheckNetwork = useCallback(async () => {
+    if (connection) {
+      await refreshConnection(connection);
+      return;
+    }
+    await establishConnection("manual");
+  }, [connection, establishConnection, refreshConnection]);
+
   const disconnect = useCallback(() => {
     operationVersionRef.current += 1;
     connectingRef.current = false;
@@ -354,6 +363,7 @@ export function Providers({ children }: { children: ReactNode }) {
         availability,
       ),
       connect,
+      recheckNetwork,
       cancelConnection,
       changeAccount,
       disconnect,
@@ -369,6 +379,7 @@ export function Providers({ children }: { children: ReactNode }) {
       connectionActivity,
       disconnect,
       issue,
+      recheckNetwork,
       revalidating,
     ],
   );

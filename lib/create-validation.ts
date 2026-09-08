@@ -17,6 +17,7 @@ export type CreateValidationIssue = {
 
 type ProtectValues = {
   connected: boolean;
+  networkVerified: boolean;
   ownerPaymentKeyHashes?: readonly string[];
   ada: string;
   periodDays: number;
@@ -68,6 +69,14 @@ export function validateProtectStep(values: ProtectValues): CreateValidationIssu
       step: 1,
       field: "wallet",
       message: "Connect your Preprod Eternl wallet to continue.",
+    };
+  }
+  if (!values.networkVerified) {
+    return {
+      step: 1,
+      field: "wallet",
+      message:
+        "Baton has not verified this account on Preprod yet. Select Preprod in Eternl, fund the address with test ADA if it is empty, then recheck.",
     };
   }
 

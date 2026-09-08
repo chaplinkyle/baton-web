@@ -56,6 +56,8 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-button:hover { background: var(--signal-soft); }
 .wallet-button:disabled { opacity: .6; cursor: wait; }
 .wallet-button.connected { border-color: var(--line); color: var(--ink); }
+.wallet-button.connected.unverified { border-color: #6f5838; color: var(--amber); }
+.wallet-button.unverified .status-dot { background: var(--amber); box-shadow: 0 0 0 3px rgba(224, 183, 125, .12); }
 .wallet-glyph { display: block; flex: 0 0 auto; width: 18px; height: 18px; padding: 3px; border-radius: 5px; color: var(--signal); background: var(--signal-soft); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
 .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #7fc6ad; box-shadow: 0 0 0 3px rgba(127, 198, 173, .12); }
 .wallet-chevron { display: block; flex: 0 0 auto; width: 14px; height: 14px; margin-left: auto; color: var(--muted); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -77,6 +79,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-panel-actions.single-action { grid-template-columns: 1fr; }
 .wallet-panel-actions.wallet-setup-actions { grid-template-columns: 1fr; }
 .wallet-connected-actions button:last-child { grid-column: 1 / -1; }
+.wallet-connected-actions.unverified button:last-child { grid-column: auto; }
 .wallet-panel-actions button, .wallet-panel-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: transparent; font-size: .76rem; font-weight: 650; cursor: pointer; }
 .wallet-panel-actions button:first-child, .wallet-panel-actions a:first-child { border-color: var(--signal-2); color: var(--signal); background: var(--signal-soft); }
 .wallet-panel .wallet-faucet { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: .75rem; line-height: 1.55; }

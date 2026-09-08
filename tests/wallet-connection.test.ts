@@ -91,13 +91,14 @@ const FAKE_PROTOCOL_PARAMETERS = {
 function installFakeEternl(
   api: ReturnType<typeof fakeWalletApi>,
   onEnable: (options: unknown) => void,
+  supportedExtensions: Array<{ cip: number }> = [{ cip: 142 }],
 ) {
   const previousWindow = globalThis.window;
   const previousFetch = globalThis.fetch;
   const provider = {
     name: "Eternl",
     apiVersion: "2.0.0-test",
-    supportedExtensions: [{ cip: 142 }],
+    supportedExtensions,
     isEnabled: async () => true,
     enable: async (options: unknown) => {
       onEnable(options);
@@ -155,6 +156,33 @@ test("the complete Eternl handshake requests and proves exact Preprod access", a
       "5640d9bfcaa869ed535cf3564107938397eaaeb7245b7520980d5112",
       "963786b45e76384b04d0aad0a7a36cc7c22564f9a4ff7b1a18ed95c6",
     ]);
+  } finally {
+    restoreWindow();
+  }
+});
+
+test("an empty legacy Eternl account connects without transaction authority", async () => {
+  const api = {
+    ...fakeWalletApi(),
+    getExtensions: undefined,
+    cip142: undefined,
+    getUtxos: async () => [],
+  };
+  let enableOptions: unknown = "not called";
+  const restoreWindow = installFakeEternl(
+    api as ReturnType<typeof fakeWalletApi>,
+    (options) => { enableOptions = options; },
+    [],
+  );
+
+  try {
+    const connection = await connectEternl();
+
+    assert.equal(enableOptions, undefined);
+    assert.equal(connection.address, OWNER_ADDRESS);
+    assert.equal(connection.networkId, 0);
+    assert.equal(connection.networkMagic, null);
+    assert.equal(isExactWalletNetwork(connection), false);
   } finally {
     restoreWindow();
   }

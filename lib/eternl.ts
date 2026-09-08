@@ -69,7 +69,9 @@ export function isWalletSessionReady(
   connection: EternlConnection | null,
   revalidating: boolean,
 ) {
-  return connection !== null && !revalidating;
+  return connection !== null &&
+    !revalidating &&
+    isExactWalletNetwork(connection);
 }
 
 export function walletIdentityKey(
@@ -292,6 +294,14 @@ export function walletErrorMessage(
     return detail ?? fallback;
   }
 
+  if (
+    /cannot read propert(?:y|ies)|undefined is not|null is not|is not a function|reading ['"]/i.test(
+      detail ?? "",
+    )
+  ) {
+    return fallback;
+  }
+
   return detail?.trim() || fallback;
 }
 
@@ -377,10 +387,17 @@ async function proveConfiguredNetworkFromWalletUtxo(lucid: LucidEvolution) {
     READ_TIMEOUT_MS,
   );
   const candidates = walletUtxos.slice(0, NETWORK_PROOF_UTXO_LIMIT);
+  // Older CIP-30 bridges expose only the shared testnet network ID. An empty
+  // account therefore cannot prove Preprod versus Preview yet. Keep the
+  // account connected in a read-only, unverified state so Baton can show its
+  // address and faucet guidance; isWalletSessionReady continues to block all
+  // transaction preparation until a confirmed Preprod UTxO supplies proof.
+  if (candidates.length === 0) return null;
+
   const provider = lucid.config().provider;
-  if (!provider || candidates.length === 0) {
+  if (!provider) {
     throw new Error(
-      `Baton could not prove that this account is on ${CARDANO_NETWORK}. This release requires ${CARDANO_NETWORK}; select a funded account on that network or update Eternl, then reconnect.`,
+      `Baton could not prove that this account is on ${CARDANO_NETWORK}. This release requires ${CARDANO_NETWORK}; update Eternl, then reconnect.`,
     );
   }
 

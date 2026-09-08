@@ -6,6 +6,7 @@ import { Buffer } from "buffer";
 import { useWallet } from "@/app/providers";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { cardanoErrorMessage } from "@/lib/cardano-errors";
+import { CARDANO_NETWORK } from "@/lib/config";
 import {
   parseManifest,
   storeManifest,
@@ -285,7 +286,9 @@ export default function PlansPage() {
           <small>{wallet.revalidating
             ? "The previous session cannot authorize an action"
             : wallet.connection
-              ? loading
+              ? !walletReady
+                ? `${CARDANO_NETWORK} not verified · showing ${plans.length} saved plan${plans.length === 1 ? "" : "s"} from this device`
+                : loading
                 ? `${isExactWalletNetwork(wallet.connection) ? "Preprod verified" : "Testnet connected · confirm Preprod in Eternl"} · Searching ${wallet.connection.paymentKeyHashes.length} wallet address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} and this device`
                 : `${isExactWalletNetwork(wallet.connection) ? "Preprod verified" : "Testnet connected · confirm Preprod in Eternl"} · ${plans.length} verified plan${plans.length === 1 ? "" : "s"} found`
             : waitingForApproval
@@ -299,7 +302,9 @@ export default function PlansPage() {
                     : "Saved plans on this device remain visible"}</small>
         </div>
         {!wallet.connection && <button type="button" className="button secondary" onClick={() => void wallet.connect()} disabled={wallet.connecting || wallet.availability === "detecting"}>{wallet.connectionActionLabel}</button>}
-        {wallet.connection && <button className="button secondary" onClick={() => void refresh()} disabled={loading || wallet.revalidating}>{wallet.revalidating ? "Confirming…" : loading ? "Checking…" : "Refresh"}</button>}
+        {wallet.connection && (walletReady
+          ? <button className="button secondary" onClick={() => void refresh()} disabled={loading || wallet.revalidating}>{wallet.revalidating ? "Confirming…" : loading ? "Checking…" : "Refresh plans"}</button>
+          : <button className="button secondary" onClick={() => void wallet.recheckNetwork()} disabled={wallet.revalidating}>{wallet.revalidating ? "Confirming…" : `Recheck ${CARDANO_NETWORK}`}</button>)}
       </section>
 
       {error && <ErrorBanner message={error} />}
@@ -316,7 +321,7 @@ export default function PlansPage() {
         {plansArePending && plans.length > 0 && <div className="plans-progress" role="status"><span className="status-dot" aria-hidden="true" /><div><strong>{waitingForWallet ? walletProgressTitle : "Updating your saved plans…"}</strong><small>{waitingForWallet ? walletProgressCopy : "Baton is checking current Cardano status and recalculating wallet roles. Saved plans remain visible while this finishes."}</small></div></div>}
         {waitingForWallet && plans.length === 0 && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{walletProgressTitle}</h2><p>{walletProgressCopy}</p></div>}
         {!waitingForWallet && (loading || !currentPlansResult) && plans.length === 0 && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
-        {!waitingForWallet && !loading && currentPlansResult && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID. If Eternl keeps selecting another account, disable Forced DApp Account for Baton in Eternl.</p></div>}
+        {!waitingForWallet && !loading && currentPlansResult && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>{wallet.connection && !walletReady ? `Verify ${CARDANO_NETWORK} to search this wallet` : "No plans found yet"}</h2><p>{wallet.connection && !walletReady ? `Baton is showing plans saved on this device, but it will not search this Eternl account until ${CARDANO_NETWORK} is verified. If the account is empty, use the faucet link in the wallet menu, then recheck.` : "Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID. If Eternl keeps selecting another account, disable Forced DApp Account for Baton in Eternl."}</p></div>}
         {currentPlansResult && plans.map((plan) => {
           const active = plan.lifecycle?.kind === "active" ? plan.lifecycle.state : null;
           const status = active
