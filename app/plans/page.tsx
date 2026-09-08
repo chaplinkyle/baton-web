@@ -265,7 +265,7 @@ export default function PlansPage() {
         <Link className="button primary" href="/create">Create a plan</Link>
       </header>
 
-      <section className="plans-account">
+      <section className="plans-account" data-wallet-return-focus tabIndex={-1}>
         <div>
           <span>ETERNL WALLET</span>
           <strong>{wallet.revalidating

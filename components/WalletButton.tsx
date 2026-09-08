@@ -7,6 +7,7 @@ import {
   cardanoBrowseUri,
   isExactWalletNetwork,
   shouldOfferWalletAppHandoff,
+  WALLET_FOREGROUND_REQUEST_EVENT,
   walletAddressSearchDescription,
   walletIssuePresentation,
   walletSetupPresentation,
@@ -35,19 +36,35 @@ export function WalletButton() {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const copyResetTimer = useRef<number | null>(null);
-  // A request started from Create or My Plans should be just as legible as one
-  // started here. Keep the approval guidance visible until Eternl resolves the
-  // request so the disabled button never looks like an unexplained spinner.
+  const walletReturnFocusRef = useRef<HTMLElement | null>(null);
+  // A request started from Create, My Plans, or a plan should be as legible as
+  // one started here. Passive restoration stays compact in the header unless
+  // the user opens it, while foreground requests keep their guidance visible.
   const connectionPending = wallet.connectionActivity !== "idle";
-  const panelOpen = open || connectionPending || Boolean(wallet.error);
+  const foregroundConnectionPending =
+    connectionPending && wallet.connectionActivity !== "restoring";
+  const panelOpen = open || foregroundConnectionPending || Boolean(wallet.error);
+  const triggerBlocked =
+    (wallet.connecting && wallet.connectionActivity !== "restoring") ||
+    wallet.availability === "detecting";
+
+  const restoreWalletFocus = useCallback(() => {
+    const returnTarget = walletReturnFocusRef.current;
+    walletReturnFocusRef.current = null;
+    window.requestAnimationFrame(() => {
+      const target = returnTarget?.isConnected
+        ? returnTarget
+        : buttonRef.current;
+      target?.focus({ preventScroll: true });
+    });
+  }, []);
 
   const closePanel = useCallback((restoreFocus = false) => {
     setOpen(false);
     clearWalletError();
-    if (restoreFocus) {
-      window.requestAnimationFrame(() => buttonRef.current?.focus());
-    }
-  }, [clearWalletError]);
+    if (restoreFocus) restoreWalletFocus();
+    else walletReturnFocusRef.current = null;
+  }, [clearWalletError, restoreWalletFocus]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 620px)");
@@ -58,7 +75,36 @@ export function WalletButton() {
   }, []);
 
   useEffect(() => {
-    if (!panelOpen || !mobileSheet) return;
+    const holdForegroundConnection = () => {
+      const active = document.activeElement instanceof HTMLElement &&
+          document.activeElement !== document.body
+        ? document.activeElement
+        : null;
+      if (active && slotRef.current?.contains(active)) return;
+      walletReturnFocusRef.current =
+        active?.closest<HTMLElement>("[data-wallet-return-focus]") ?? active;
+      // Keep the result open so focused dialog content is never removed when
+      // an inline connection finishes and replaces its initiating button.
+      setOpen(true);
+    };
+    window.addEventListener(
+      WALLET_FOREGROUND_REQUEST_EVENT,
+      holdForegroundConnection,
+    );
+    return () => window.removeEventListener(
+      WALLET_FOREGROUND_REQUEST_EVENT,
+      holdForegroundConnection,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!panelOpen) return;
+    const focusFrame = window.requestAnimationFrame(() => {
+      (closeButtonRef.current ?? panelRef.current)?.focus();
+    });
+    if (!mobileSheet) {
+      return () => window.cancelAnimationFrame(focusFrame);
+    }
     const background = Array.from(document.querySelectorAll<HTMLElement>(
       "main, .site-footer, .site-header nav",
     ));
@@ -69,9 +115,6 @@ export function WalletButton() {
     background.forEach((element) => { element.inert = true; });
     brand?.setAttribute("tabindex", "-1");
     brand?.setAttribute("aria-hidden", "true");
-    const focusFrame = window.requestAnimationFrame(() => {
-      (closeButtonRef.current ?? panelRef.current)?.focus();
-    });
     return () => {
       window.cancelAnimationFrame(focusFrame);
       background.forEach((element, index) => { element.inert = previous[index]; });
@@ -190,7 +233,7 @@ export function WalletButton() {
         type="button"
         className={`wallet-button ${wallet.connection ? "connected" : ""} ${wallet.connection && !exactNetworkConfirmed ? "unverified" : ""}`}
         onClick={handlePrimaryClick}
-        disabled={wallet.connecting || wallet.availability === "detecting"}
+        disabled={triggerBlocked}
         aria-busy={wallet.revalidating || undefined}
         aria-label={triggerLabel}
         aria-haspopup="dialog"
@@ -206,7 +249,7 @@ export function WalletButton() {
           </svg>
         )}
         <span>{label}</span>
-        {(panelOpen || wallet.connection || wallet.error || !wallet.available) && (
+        {(panelOpen || wallet.connection || wallet.error || wallet.availability === "missing") && (
           <svg className="wallet-chevron" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
             <path d="m3.5 5 3.5 4 3.5-4" />
           </svg>

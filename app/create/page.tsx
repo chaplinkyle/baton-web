@@ -507,7 +507,7 @@ export default function CreateVault() {
           {step === 1 && (
             <div className="form-section">
               <div className="form-heading"><span>01</span><div><h2>What do you want to protect?</h2><p>Choose your assets and the wallet you will use for regular check-ins.</p></div></div>
-              <div className="connection-card" data-create-field="wallet" tabIndex={-1} aria-busy={wallet.revalidating || undefined}>
+              <div className="connection-card" data-create-field="wallet" data-wallet-return-focus tabIndex={-1} aria-busy={wallet.revalidating || undefined}>
                 <div>
                   <span>YOUR ETERNL WALLET</span>
                   <strong>{walletConnectionTitle()}</strong>

@@ -22,6 +22,7 @@ import {
   isWalletNetworkError,
   isEternlAvailable,
   refreshEternlConnection,
+  WALLET_FOREGROUND_REQUEST_EVENT,
   WalletInteractionGate,
   walletConnectionActionLabel,
   walletErrorMessage,
@@ -120,6 +121,9 @@ export function Providers({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (mode !== "restore") {
+        window.dispatchEvent(new Event(WALLET_FOREGROUND_REQUEST_EVENT));
+      }
       const operationVersion = ++operationVersionRef.current;
       connectingRef.current = true;
       setConnectionActivity(
@@ -134,7 +138,13 @@ export function Providers({ children }: { children: ReactNode }) {
       try {
         const nextConnection = await connectEternl(() => {
           if (operationVersionRef.current === operationVersion) {
-            setConnectionActivity("checking");
+            setConnectionActivity(
+              mode === "manual"
+                ? "checking"
+                : mode === "account-change"
+                  ? "switching"
+                  : "restoring",
+            );
           }
         });
         if (operationVersionRef.current === operationVersion) {
@@ -170,7 +180,10 @@ export function Providers({ children }: { children: ReactNode }) {
     [establishConnection],
   );
 
-  const refreshConnection = useCallback(async (current: EternlConnection) => {
+  const refreshConnection = useCallback(async (
+    current: EternlConnection,
+    foreground = false,
+  ) => {
     if (connectingRef.current) return;
     if (!isEternlAvailable()) {
       operationVersionRef.current += 1;
@@ -187,6 +200,9 @@ export function Providers({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (foreground) {
+      window.dispatchEvent(new Event(WALLET_FOREGROUND_REQUEST_EVENT));
+    }
     const operationVersion = ++operationVersionRef.current;
     let accountChanged = false;
     connectingRef.current = true;
@@ -238,7 +254,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const recheckNetwork = useCallback(async () => {
     if (connection) {
-      await refreshConnection(connection);
+      await refreshConnection(connection, true);
       return;
     }
     await establishConnection("manual");

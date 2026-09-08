@@ -480,7 +480,7 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
             <div><span>FINAL HANDOFF TIME</span>{planTime(state.releaseAtMs)}</div>
             <div><span>WHAT IS PROTECTED</span><strong>{formatAda(state.utxo.assets.lovelace ?? 0n)} + {protectedAssetCount === 0 ? "no other assets" : `${protectedAssetCount} other asset${protectedAssetCount === 1 ? "" : "s"}`}</strong></div>
           </div>
-          <div className="action-panel">
+          <div className="action-panel" data-wallet-return-focus tabIndex={-1}>
             <p className="eyebrow">WHAT YOU CAN DO NOW</p>
             {!wallet.connection ? <div className="action-guidance">
               <strong>Connect the wallet for this plan</strong>

@@ -16,6 +16,7 @@ const APPROVAL_TIMEOUT_MS = 45_000;
 const READ_TIMEOUT_MS = 12_000;
 const ADDRESS_DISCOVERY_TIMEOUT_MS = 4_000;
 export const MIN_WALLET_APPROVAL_WINDOW_MS = 60_000;
+export const WALLET_FOREGROUND_REQUEST_EVENT = "baton:wallet-foreground-request";
 // A single matching out-ref proves the configured chain. Cap the query to
 // avoid disclosing an account's complete UTxO set to the public indexer.
 const NETWORK_PROOF_UTXO_LIMIT = 5;
