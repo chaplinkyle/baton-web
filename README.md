@@ -65,6 +65,27 @@ npm run test:network
 unit and emulator tests, and a production Next.js build. `test:network` is kept
 separate because it queries public Preprod infrastructure.
 
+## Verify a saved plan independently
+
+Run the same complete verification used by `/verify` from a local checkout:
+
+```bash
+npm run plan:verify -- ./baton-plan.json
+```
+
+This reconstructs the applied contract and checks the creation transaction,
+setup-fee evidence, current lifecycle output, and complete canonical receipt
+history against public Cardano Preprod data. To make a network-free check of
+only the saved manifest and vendored contract artifact, use:
+
+```bash
+npm run plan:verify -- --offline ./baton-plan.json
+```
+
+Offline mode labels its result accordingly and does not claim that current
+Cardano state was checked. Pass `-` instead of a filename to read JSON from
+standard input.
+
 ## Repository boundaries
 
 This repository owns the website, Eternl connection, transaction builders,

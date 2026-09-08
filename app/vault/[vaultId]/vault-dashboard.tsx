@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/app/providers";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/product";
 import { availablePlanActions } from "@/lib/plan-actions";
 import type { PlanHistoryEntry, PlanRole } from "@/lib/plan-discovery";
+import { protocolArtifactFor } from "@/lib/protocol-artifacts";
 import type {
   ActionReview,
   CompletedVaultState,
@@ -390,6 +392,9 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       <small>Exact UTC · {formatUtc(timestamp)}</small>
     </time>
   );
+  const protocolArtifact = manifest
+    ? protocolArtifactFor(manifest.receiptName)
+    : null;
 
   return (
     <div className="page-shell vault-shell">
@@ -520,6 +525,33 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
             <div className="history-when">{planTime(entry.confirmedAtMs)}<a href={`${EXPLORER_URL}/transaction/${entry.txHash}`} target="_blank" rel="noreferrer">View {shortHash(entry.txHash, 8)} ↗</a></div>
           </li>)}
         </ol>}
+      </section>}
+
+      {manifest && protocolArtifact && (state || completed) && <section className="protocol-panel" aria-labelledby="protocol-panel-title">
+        <div>
+          <p className="eyebrow">OPEN CONTRACT VERIFICATION</p>
+          <h2 id="protocol-panel-title">Verify what protects this plan</h2>
+          <p>
+            This plan reproduces the pinned {protocolArtifact.release} validator
+            from its one-shot seed. The source, compiled blueprint, and release
+            evidence are public and do not depend on Baton remaining online.
+          </p>
+        </div>
+        <dl>
+          <div><dt>PROTOCOL RELEASE</dt><dd>{protocolArtifact.release}</dd></div>
+          <div><dt>RAW VALIDATOR HASH</dt><dd className="mono">{shortHash(protocolArtifact.validatorHash, 12)}</dd></div>
+          <div><dt>APPLIED POLICY ID</dt><dd className="mono">{shortHash(manifest.policyId, 12)}</dd></div>
+          <div><dt>BLUEPRINT SHA-256</dt><dd className="mono">{shortHash(protocolArtifact.blueprintSha256, 12)}</dd></div>
+          <div><dt>AIKEN COMPILER</dt><dd>{protocolArtifact.compiler}</dd></div>
+          <div><dt>CURRENT RECEIPT</dt><dd>{completed ? manifest.terminalReceiptName : manifest.receiptName}</dd></div>
+        </dl>
+        <div className="protocol-links">
+          <a href={`${EXPLORER_URL}/address/${manifest.validatorAddress}`} target="_blank" rel="noreferrer">Applied validator ↗</a>
+          {protocolArtifact.sourceUrl && <a href={protocolArtifact.sourceUrl} target="_blank" rel="noreferrer">Validator source ↗</a>}
+          <a href={protocolArtifact.blueprintUrl} target="_blank" rel="noreferrer">Compiled blueprint ↗</a>
+          <a href={protocolArtifact.releaseManifestUrl} target="_blank" rel="noreferrer">Release manifest ↗</a>
+          <Link href="/verify">Verify the plan file →</Link>
+        </div>
       </section>}
     </div>
   );

@@ -11,8 +11,10 @@ import {
   BATON_DISCOVERY_LABEL,
   CARDANO_NETWORK,
   KOIOS_URL,
+  TREASURY_ADDRESS,
 } from "./config";
 import { parseManifest, type VaultManifest } from "./manifest";
+import { SITE_FEE_LOVELACE } from "./product";
 import { SUPPORTED_RECEIPT_NAMES } from "./protocol-names";
 import {
   decodeVaultDatum,
@@ -30,6 +32,7 @@ type KoiosAsset = {
 type KoiosInput = {
   tx_hash: string;
   tx_index: number;
+  value?: string;
   payment_addr?: { bech32: string } | null;
   asset_list?: KoiosAsset[];
 };
@@ -77,6 +80,14 @@ export type PlanHistoryHead =
       txHash: string;
       outputIndex: number;
     };
+
+export type CreationVerification = {
+  txHash: string;
+  confirmedAtMs: number | null;
+  discoveryMarker: boolean;
+  siteFee: "verified" | "not-found";
+  siteFeeLovelace: bigint;
+};
 
 type KoiosMetadataTransaction = {
   tx_hash: string;
@@ -167,6 +178,12 @@ export function recoverManifestFromTransaction(
         transaction.assets_minted ?? [],
         contract.recoveryReceiptUnit,
       );
+      if (
+        assetQuantity(
+          transaction.assets_minted ?? [],
+          contract.terminalReceiptUnit,
+        ) !== 0n
+      ) continue;
       if (datum.releaseRule.kind === "bearer") {
         if (
           datum.releaseRule.policyId !== contract.policyId ||
@@ -234,6 +251,84 @@ async function fetchTransactionInfo(txHashes: string[]) {
   return response.json() as Promise<KoiosCreationTransaction[]>;
 }
 
+function assertCreationMatchesManifest(
+  expected: VaultManifest,
+  recovered: VaultManifest,
+) {
+  const fields: Array<Exclude<keyof VaultManifest, "seed">> = [
+    "version",
+    "network",
+    "creationTx",
+    "receiptName",
+    "terminalReceiptName",
+    "recoveryReceiptName",
+    "policyId",
+    "receiptUnit",
+    "terminalReceiptUnit",
+    "validatorAddress",
+    "ownerKeyHash",
+    "livenessKeyHash",
+    "checkInPeriodMs",
+    "missesToRelease",
+    "lastCheckInAtMs",
+    "releaseAtMs",
+    "releaseMode",
+    "destination",
+    "recoveryUnit",
+    "payloadCommitment",
+  ];
+  if (
+    expected.seed.txHash !== recovered.seed.txHash ||
+    expected.seed.outputIndex !== recovered.seed.outputIndex ||
+    fields.some((field) => expected[field] !== recovered[field])
+  ) {
+    throw new Error("The creation transaction does not reproduce this complete plan file.");
+  }
+}
+
+/** Verify the manifest against its exact confirmed creation transaction. */
+export async function verifyCreationTransaction(
+  manifest: VaultManifest,
+): Promise<CreationVerification> {
+  const [transaction] = await fetchTransactionInfo([manifest.creationTx]);
+  if (!transaction) {
+    throw new Error("The plan's creation transaction was not found on this Cardano network.");
+  }
+  assertCreationMatchesManifest(
+    manifest,
+    recoverManifestFromTransaction(transaction),
+  );
+
+  const exactFeeOutputs = transaction.outputs.filter((output) => {
+    if (
+      !TREASURY_ADDRESS ||
+      output.payment_addr?.bech32 !== TREASURY_ADDRESS ||
+      (output.asset_list ?? []).length !== 0
+    ) return false;
+    try {
+      return BigInt(output.value) === SITE_FEE_LOVELACE;
+    } catch {
+      return false;
+    }
+  });
+  if (exactFeeOutputs.length > 1) {
+    throw new Error("The creation transaction contains more than one claimed Baton setup-fee output.");
+  }
+  const timestamp = transaction.tx_timestamp;
+
+  return {
+    txHash: transaction.tx_hash,
+    confirmedAtMs:
+      Number.isSafeInteger(timestamp) && (timestamp ?? 0) > 0
+        ? timestamp! * 1_000
+        : null,
+    discoveryMarker: hasDiscoveryMarker(transaction),
+    siteFee: exactFeeOutputs.length === 1 ? "verified" : "not-found",
+    siteFeeLovelace:
+      exactFeeOutputs.length === 1 ? SITE_FEE_LOVELACE : 0n,
+  };
+}
+
 async function fetchAssetTransactionHistory(manifest: VaultManifest) {
   const rows: KoiosAssetTransaction[] = [];
   const assetName = manifest.receiptUnit.slice(56);
@@ -271,18 +366,66 @@ function historyOutput(
   );
 }
 
-function consumesPreviousState(
+function consumedPreviousState(
   transaction: KoiosCreationTransaction,
   previous: { txHash: string; outputIndex: number },
   manifest: VaultManifest,
 ) {
-  return transaction.inputs.some(
+  return transaction.inputs.find(
     (input) =>
       input.tx_hash === previous.txHash &&
       input.tx_index === previous.outputIndex &&
       input.payment_addr?.bech32 === manifest.validatorAddress &&
       assetQuantity(input.asset_list ?? [], manifest.receiptUnit) === 1n,
   );
+}
+
+function endpointAssets(
+  endpoint: { value?: string; asset_list?: KoiosAsset[] },
+  label: string,
+) {
+  let lovelace: bigint;
+  try {
+    lovelace = BigInt(endpoint.value ?? "");
+  } catch {
+    throw new Error(`${label} has an invalid ADA value.`);
+  }
+  if (lovelace < 0n) throw new Error(`${label} has a negative ADA value.`);
+  const assets = new Map<string, bigint>([["lovelace", lovelace]]);
+  for (const asset of endpoint.asset_list ?? []) {
+    const unit = `${asset.policy_id}${asset.asset_name}`;
+    let quantity: bigint;
+    try {
+      quantity = BigInt(asset.quantity);
+    } catch {
+      throw new Error(`${label} has an invalid native-asset quantity.`);
+    }
+    assets.set(unit, (assets.get(unit) ?? 0n) + quantity);
+  }
+  return assets;
+}
+
+function sameAssetMap(left: Map<string, bigint>, right: Map<string, bigint>) {
+  const units = new Set([...left.keys(), ...right.keys()]);
+  return [...units].every(
+    (unit) => (left.get(unit) ?? 0n) === (right.get(unit) ?? 0n),
+  );
+}
+
+function preservesProtectedValue(
+  input: KoiosInput,
+  output: KoiosOutput,
+  manifest: VaultManifest,
+  completed: boolean,
+) {
+  const before = endpointAssets(input, "Consumed plan state");
+  const after = endpointAssets(output, "Produced plan state");
+  if (completed) {
+    if (before.get(manifest.receiptUnit) !== 1n) return false;
+    before.delete(manifest.receiptUnit);
+    before.set(manifest.terminalReceiptUnit, 1n);
+  }
+  return sameAssetMap(before, after);
 }
 
 function historyTimestamp(row: KoiosAssetTransaction) {
@@ -313,13 +456,28 @@ export function verifyPlanHistory(
     throw new Error("Plan history does not reproduce the manifest's validator.");
   }
 
-  const transactionByHash = new Map(
-    transactions.map((transaction) => [transaction.tx_hash, transaction]),
-  );
-  const rows = [...indexedRows].sort(
-    (left, right) => left.block_height - right.block_height,
-  );
-  if (rows.length === 0 || rows[0].tx_hash !== manifest.creationTx) {
+  const transactionByHash = new Map<string, KoiosCreationTransaction>();
+  for (const transaction of transactions) {
+    if (transactionByHash.has(transaction.tx_hash)) {
+      throw new Error("Cardano returned duplicate plan-history transaction details.");
+    }
+    transactionByHash.set(transaction.tx_hash, transaction);
+  }
+  const remainingRows = new Map<string, KoiosAssetTransaction>();
+  for (const row of indexedRows) {
+    if (!/^[0-9a-f]{64}$/.test(row.tx_hash)) {
+      throw new Error("Cardano returned a malformed plan-history transaction ID.");
+    }
+    if (remainingRows.has(row.tx_hash)) {
+      throw new Error("Cardano returned a duplicate plan-history record.");
+    }
+    if (!transactionByHash.has(row.tx_hash)) {
+      throw new Error("Cardano omitted details for a plan-history transaction.");
+    }
+    remainingRows.set(row.tx_hash, row);
+  }
+  let row = remainingRows.get(manifest.creationTx);
+  if (!row) {
     throw new Error("Plan history does not begin with the manifest's creation transaction.");
   }
 
@@ -328,15 +486,16 @@ export function verifyPlanHistory(
   let expectedSequence = 0;
   let terminal: { txHash: string; outputIndex: number } | null = null;
 
-  for (const row of rows) {
-    if (!/^[0-9a-f]{64}$/.test(row.tx_hash)) {
-      throw new Error("Cardano returned a malformed plan-history transaction ID.");
-    }
+  while (row) {
+    remainingRows.delete(row.tx_hash);
     const transaction = transactionByHash.get(row.tx_hash);
-    if (!transaction) {
-      throw new Error("Cardano omitted details for a plan-history transaction.");
-    }
-    if (previous && !consumesPreviousState(transaction, previous, manifest)) {
+    // Every indexed row was matched above. Keep this assertion local so a
+    // future refactor cannot accidentally make transaction detail optional.
+    if (!transaction) throw new Error("Cardano omitted plan-history details.");
+    const previousInput = previous
+      ? consumedPreviousState(transaction, previous, manifest)
+      : undefined;
+    if (previous && !previousInput) {
       throw new Error("Plan history contains a transaction outside the canonical receipt chain.");
     }
 
@@ -363,9 +522,17 @@ export function verifyPlanHistory(
       );
       if (
         (expectedSequence === 0 && mintedReceipt !== 1n) ||
-        (expectedSequence > 0 && mintedReceipt !== 0n)
+        (expectedSequence > 0 && mintedReceipt !== 0n) ||
+        assetQuantity(activeOutput.asset_list ?? [], manifest.terminalReceiptUnit) !== 0n
       ) {
         throw new Error("Plan history has an invalid active-receipt mint shape.");
+      }
+      if (
+        expectedSequence > 0 &&
+        previousInput &&
+        !preservesProtectedValue(previousInput, activeOutput, manifest, false)
+      ) {
+        throw new Error("A check-in changed the protected ADA or native-asset bundle.");
       }
       history.push({
         kind: expectedSequence === 0 ? "created" : "check-in",
@@ -375,6 +542,17 @@ export function verifyPlanHistory(
       });
       previous = { txHash: row.tx_hash, outputIndex };
       expectedSequence += 1;
+      if (remainingRows.size === 0) break;
+      const nextRows = [...remainingRows.values()].filter((candidate) => {
+        const nextTransaction = transactionByHash.get(candidate.tx_hash);
+        return nextTransaction && previous
+          ? Boolean(consumedPreviousState(nextTransaction, previous, manifest))
+          : false;
+      });
+      if (nextRows.length !== 1) {
+        throw new Error("Plan history does not form one unambiguous canonical receipt chain.");
+      }
+      row = nextRows[0];
       continue;
     }
 
@@ -386,7 +564,9 @@ export function verifyPlanHistory(
       typeof terminalOutputIndex !== "number" ||
       !Number.isInteger(terminalOutputIndex) ||
       assetQuantity(transaction.assets_minted ?? [], manifest.receiptUnit) !== -1n ||
-      assetQuantity(transaction.assets_minted ?? [], manifest.terminalReceiptUnit) !== 1n
+      assetQuantity(transaction.assets_minted ?? [], manifest.terminalReceiptUnit) !== 1n ||
+      !previousInput ||
+      !preservesProtectedValue(previousInput, terminalOutput, manifest, true)
     ) {
       throw new Error("Plan history contains an invalid completion transition.");
     }
@@ -397,6 +577,10 @@ export function verifyPlanHistory(
       confirmedAtMs: historyTimestamp(row),
       sequence: expectedSequence - 1,
     });
+    if (remainingRows.size !== 0) {
+      throw new Error("Plan history continues after its completion receipt.");
+    }
+    break;
   }
 
   if (head.kind === "active") {

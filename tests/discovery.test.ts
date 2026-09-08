@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BATON_DISCOVERY_LABEL } from "../lib/config";
+import {
+  BATON_DISCOVERY_LABEL,
+  TREASURY_ADDRESS,
+} from "../lib/config";
 import {
   discoverWalletManifests,
   readPlanHistory,
   recoverManifestFromCreationTx,
   recoverManifestFromTransaction,
   rolesForManifest,
+  verifyCreationTransaction,
   verifyPlanHistory,
   type KoiosAssetTransaction,
   type KoiosCreationTransaction,
@@ -72,14 +76,20 @@ test("verifies creation, check-in, and completion through the canonical receipt 
     policy_id: manifest.policyId,
     asset_name: manifest.receiptUnit.slice(56),
     quantity: "1",
+  }, {
+    policy_id: "ab".repeat(28),
+    asset_name: Buffer.from("FAMILY_TOKEN").toString("hex"),
+    quantity: "7",
   }];
+  created.outputs[0].asset_list = structuredClone(receipt);
   const pulse: KoiosCreationTransaction = {
     tx_hash: pulseHash,
     inputs: [{
       tx_hash: created.tx_hash,
       tx_index: 0,
+      value: "25000000",
       payment_addr: { bech32: manifest.validatorAddress },
-      asset_list: receipt,
+      asset_list: structuredClone(receipt),
     }],
     outputs: [{
       tx_hash: pulseHash,
@@ -97,7 +107,7 @@ test("verifies creation, check-in, and completion through the canonical receipt 
           sequence: 1,
         }),
       },
-      asset_list: receipt,
+      asset_list: structuredClone(receipt),
     }],
     assets_minted: [],
     metadata: null,
@@ -107,8 +117,9 @@ test("verifies creation, check-in, and completion through the canonical receipt 
     inputs: [{
       tx_hash: pulseHash,
       tx_index: 0,
+      value: "25000000",
       payment_addr: { bech32: manifest.validatorAddress },
-      asset_list: receipt,
+      asset_list: structuredClone(receipt),
     }],
     outputs: [{
       tx_hash: completeHash,
@@ -120,7 +131,7 @@ test("verifies creation, check-in, and completion through the canonical receipt 
         policy_id: manifest.policyId,
         asset_name: manifest.terminalReceiptUnit.slice(56),
         quantity: "1",
-      }],
+      }, structuredClone(receipt[1])],
     }],
     assets_minted: [{
       policy_id: manifest.policyId,
@@ -133,9 +144,12 @@ test("verifies creation, check-in, and completion through the canonical receipt 
     }],
     metadata: null,
   };
+  // Indexers do not expose a transaction index here. Deliberately put every
+  // transition in one block and reverse the rows; verification must follow
+  // consumed output references instead of trusting presentation order.
   const rows: KoiosAssetTransaction[] = [
-    { tx_hash: completeHash, block_height: 3, block_time: 1_789_000_030 },
-    { tx_hash: pulseHash, block_height: 2, block_time: 1_789_000_020 },
+    { tx_hash: completeHash, block_height: 1, block_time: 1_789_000_030 },
+    { tx_hash: pulseHash, block_height: 1, block_time: 1_789_000_020 },
     { tx_hash: created.tx_hash, block_height: 1, block_time: 1_789_000_010 },
   ];
 
@@ -170,9 +184,44 @@ test("verifies creation, check-in, and completion through the canonical receipt 
       txHash: completeHash,
       outputIndex: 0,
     }),
-    /outside the canonical receipt chain/,
+    /does not form one unambiguous canonical receipt chain/,
   );
 
+  const changedAdaPulse = structuredClone(pulse);
+  changedAdaPulse.outputs[0].value = "24999999";
+  assert.throws(
+    () => verifyPlanHistory(manifest, rows.slice(1), [created, changedAdaPulse], {
+      kind: "active",
+      txHash: pulseHash,
+      outputIndex: 0,
+      sequence: 1,
+    }),
+    /changed the protected ADA or native-asset bundle/,
+  );
+
+  const changedTokenPulse = structuredClone(pulse);
+  changedTokenPulse.outputs[0].asset_list[1].quantity = "6";
+  assert.throws(
+    () => verifyPlanHistory(manifest, rows.slice(1), [created, changedTokenPulse], {
+      kind: "active",
+      txHash: pulseHash,
+      outputIndex: 0,
+      sequence: 1,
+    }),
+    /changed the protected ADA or native-asset bundle/,
+  );
+
+  const droppedValueCompletion = structuredClone(completed);
+  droppedValueCompletion.outputs[0].asset_list.pop();
+  assert.throws(
+    () => verifyPlanHistory(
+      manifest,
+      rows,
+      [created, pulse, droppedValueCompletion],
+      { kind: "completed", txHash: completeHash, outputIndex: 0 },
+    ),
+    /invalid completion transition/,
+  );
 });
 
 test("wallet discovery searches the history of every account payment credential", async () => {
@@ -279,6 +328,56 @@ test("automatic discovery requires the Baton metadata marker", () => {
     [BATON_DISCOVERY_LABEL]: { app: "baton", version: 1 },
   });
   assert.equal(recoverManifestFromTransaction(marked, true).policyId, policyId);
+});
+
+test("creation verification distinguishes the exact interface fee from direct use", async () => {
+  const originalFetch = globalThis.fetch;
+  const transaction = creationTransaction({
+    [BATON_DISCOVERY_LABEL]: { app: "baton", version: 1 },
+  });
+  transaction.tx_timestamp = 1_789_000_010;
+  transaction.outputs.push({
+    value: "5000000",
+    payment_addr: { bech32: TREASURY_ADDRESS },
+    inline_datum: null,
+    asset_list: [],
+  });
+  const manifest = recoverManifestFromTransaction(transaction);
+  globalThis.fetch = async (input) => {
+    assert.match(String(input), /\/tx_info$/);
+    return Response.json([transaction]);
+  };
+
+  try {
+    assert.deepEqual(await verifyCreationTransaction(manifest), {
+      txHash: transaction.tx_hash,
+      confirmedAtMs: 1_789_000_010_000,
+      discoveryMarker: true,
+      siteFee: "verified",
+      siteFeeLovelace: 5_000_000n,
+    });
+
+    transaction.outputs.pop();
+    assert.equal(
+      (await verifyCreationTransaction(manifest)).siteFee,
+      "not-found",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a completion receipt cannot be minted during plan creation", () => {
+  const transaction = creationTransaction();
+  transaction.assets_minted.push({
+    policy_id: policyId,
+    asset_name: Buffer.from("LAST_SIGNAL_DONE").toString("hex"),
+    quantity: "1",
+  });
+  assert.throws(
+    () => recoverManifestFromTransaction(transaction),
+    /not a supported Baton creation transaction/i,
+  );
 });
 
 test("a public metadata marker cannot make an unrelated transaction look like a plan", () => {
