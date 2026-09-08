@@ -17,7 +17,12 @@ const READ_TIMEOUT_MS = 12_000;
 const ADDRESS_DISCOVERY_TIMEOUT_MS = 4_000;
 
 export type WalletAvailability = "detecting" | "available" | "missing";
-export type WalletIssueKind = "missing" | "connection" | "network" | "refresh";
+export type WalletIssueKind =
+  | "missing"
+  | "connection"
+  | "network"
+  | "account"
+  | "refresh";
 export type WalletConnectionActivity =
   | "idle"
   | "restoring"
@@ -113,6 +118,14 @@ export function walletConnectionActionLabel(
 }
 
 export function walletIssuePresentation(kind: WalletIssueKind | null) {
+  if (kind === "account") {
+    return {
+      label: "Choose another account",
+      title: "Switch accounts in Eternl",
+      action: "Connect selected account",
+    };
+  }
+
   if (kind === "network") {
     return {
       label: "Wrong Cardano network",

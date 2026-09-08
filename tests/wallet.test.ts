@@ -49,6 +49,11 @@ test("wallet recovery copy distinguishes a failed connection from a changed sess
     title: "Switch Eternl to Preprod",
     action: "Try Preprod again",
   });
+  assert.deepEqual(walletIssuePresentation("account"), {
+    label: "Choose another account",
+    title: "Switch accounts in Eternl",
+    action: "Connect selected account",
+  });
 });
 
 test("wallet network failures are classified without confusing user cancellations", () => {

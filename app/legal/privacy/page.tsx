@@ -14,10 +14,10 @@ export default function Privacy() {
         </p>
         <h2>Your disconnect choice stays on this device</h2>
         <p>
-          If you disconnect Baton, this browser stores one local preference so
-          the site does not reconnect after a reload. That preference contains
-          no wallet address, balance, private key, or seed phrase. Reconnecting
-          removes it.
+          If you disconnect Baton or choose to change accounts, this browser
+          stores one local preference so the site does not reconnect to the old
+          account after a reload. That preference contains no wallet address,
+          balance, private key, or seed phrase. Reconnecting removes it.
         </p>
         <h2>Cardano is public</h2>
         <p>

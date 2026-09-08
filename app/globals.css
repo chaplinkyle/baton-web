@@ -75,6 +75,7 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .wallet-panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
 .wallet-panel-actions.single-action { grid-template-columns: 1fr; }
 .wallet-panel-actions.wallet-setup-actions { grid-template-columns: 1fr; }
+.wallet-connected-actions button:last-child { grid-column: 1 / -1; }
 .wallet-panel-actions button, .wallet-panel-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: transparent; font-size: .76rem; font-weight: 650; cursor: pointer; }
 .wallet-panel-actions button:first-child, .wallet-panel-actions a:first-child { border-color: var(--signal-2); color: var(--signal); background: var(--signal-soft); }
 .wallet-pending-note { margin-top: 18px; padding: 11px 12px; border: 1px solid var(--signal-2); border-radius: 7px; color: var(--signal); background: var(--signal-soft); font-size: .76rem; font-weight: 650; text-align: center; }
@@ -211,11 +212,16 @@ h1, h2, h3, .hero h1 { font-family: "Inter Variable", Inter, system-ui, sans-ser
 .connection-card .ready-chip.manual { color: var(--amber); }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px 18px; margin-top: 30px; }
 .field { display: grid; align-content: start; gap: 8px; min-width: 0; }
-.field > span { font-weight: 680; font-size: .88rem; }
+.field > span, .field > label { font-weight: 680; font-size: .88rem; }
 .field input, .field select { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--base); }
 .field input:focus, .field select:focus { border-color: var(--signal); }
 .field input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
 .field small { color: var(--muted); font-size: .76rem; }
+.field-help { margin-top: 4px; color: var(--muted); font-size: .78rem; }
+.field-help summary { width: max-content; max-width: 100%; color: var(--signal); cursor: pointer; font-weight: 650; }
+.field-help ol { margin: 10px 0 0; padding-left: 20px; }
+.field-help li + li { margin-top: 6px; }
+.field-help p { margin: 10px 0 0; }
 .field-error { color: var(--danger) !important; font-weight: 650; line-height: 1.45; }
 .wizard-field-error { margin: 12px 0 0; font-size: .82rem; }
 .input-suffix { display: grid; grid-template-columns: 1fr auto; }

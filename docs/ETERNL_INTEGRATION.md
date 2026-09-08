@@ -43,6 +43,14 @@ never look like an unresolved wallet approval. On small screens the wallet
 panel is a focus-contained sheet with an opaque background; on larger screens
 it remains an anchored popover.
 
+The connected-wallet panel also provides an explicit account-change path.
+Baton immediately discards the old account, suppresses automatic restoration,
+and waits for the person to select another Eternl account before reconnecting.
+This supports the protocol's separate owner, check-in, and recovery roles
+without leaving stale privileges visible. The creation form separately explains
+how to copy a receiving address from the intended check-in account and requires
+the funding account to be reconnected before transaction preparation.
+
 CIP-30 network ID `0` identifies a Cardano testnet but cannot distinguish
 Preprod from Preview. Baton requests CIP-142 when Eternl advertises support and
 requires Preprod network magic `1` when that extension is available. Otherwise

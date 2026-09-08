@@ -247,7 +247,10 @@ export function WalletButton() {
                   ? `Eternl identified this account as Cardano ${CARDANO_NETWORK}. Baton will search all ${wallet.connection.paymentKeyHashes.length} payment address${wallet.connection.paymentKeyHashes.length === 1 ? "" : "es"} exposed by this account.`
                   : "This Eternl version identifies testnet, but not Preprod versus Preview. Confirm that Preprod is selected before preparing a transaction."}
               </p>
-              <div className="wallet-panel-actions">
+              <div className="wallet-panel-actions wallet-connected-actions">
+                <button type="button" onClick={() => wallet.changeAccount()}>
+                  Change account
+                </button>
                 <button type="button" onClick={() => void copyAddress()}>
                   {copyStatus === "copied"
                     ? "Address copied"

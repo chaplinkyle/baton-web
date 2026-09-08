@@ -420,7 +420,21 @@ export default function CreateVault() {
                 <label className="field"><span>ADA to protect</span><div className="input-suffix"><input data-create-field="ada" type="number" min="5" step="0.000001" value={ada} aria-invalid={visibleStepIssue?.field === "ada" || undefined} onChange={(e) => { invalidateReview(); setAda(e.target.value); clearStepIssue("ada"); }} /><b>ADA</b></div><small>The 5 ADA site fee and network fee are additional.</small>{visibleStepIssue?.field === "ada" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
                 <label className="field"><span>Check in every</span><div className="input-suffix"><input data-create-field="period" type="number" min="1" max="3650" value={periodDays} aria-invalid={visibleStepIssue?.field === "period" || undefined} onChange={(e) => { invalidateReview(); setPeriodDays(Number(e.target.value)); clearStepIssue("period"); }} /><b>DAYS</b></div>{visibleStepIssue?.field === "period" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
                 <label className="field"><span>How many check-ins may be missed?</span><div className="input-suffix"><input data-create-field="misses" type="number" min="1" max="1000" value={misses} aria-invalid={visibleStepIssue?.field === "misses" || undefined} onChange={(e) => { invalidateReview(); setMisses(Number(e.target.value)); clearStepIssue("misses"); }} /><b>MISSES</b></div><small>Your handoff becomes available after the {misses}{misses === 1 ? "st" : misses === 2 ? "nd" : misses === 3 ? "rd" : "th"} missed check-in.</small>{visibleStepIssue?.field === "misses" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
-                <label className="field"><span>Wallet used to check in</span><input data-create-field="liveness" value={livenessAddress} aria-invalid={visibleStepIssue?.field === "liveness" || undefined} onChange={(e) => { invalidateReview(); setLivenessAddress(e.target.value.trim()); clearStepIssue("liveness"); }} placeholder="addr_test1… from another Eternl account" /><small>For safety, use a different account from the one creating the plan. This wallet can check in but cannot take your assets.</small>{visibleStepIssue?.field === "liveness" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}</label>
+                <div className="field">
+                  <label htmlFor="liveness-address">Separate wallet address for check-ins</label>
+                  <input id="liveness-address" data-create-field="liveness" value={livenessAddress} aria-invalid={visibleStepIssue?.field === "liveness" || undefined} onChange={(e) => { invalidateReview(); setLivenessAddress(e.target.value.trim()); clearStepIssue("liveness"); }} placeholder="addr_test1… from another Eternl account" />
+                  <small>Use a different Eternl account from the one creating this plan. It can keep the plan active but cannot take your assets.</small>
+                  {visibleStepIssue?.field === "liveness" && <small className="field-error" role="alert">{visibleStepIssue.message}</small>}
+                  <details className="field-help">
+                    <summary>How to get this address from Eternl</summary>
+                    <ol>
+                      <li>In Eternl, select the separate account you want to use for check-ins.</li>
+                      <li>Copy that account&apos;s receiving address and paste it above.</li>
+                      <li>Switch Eternl back to the account that will create and fund this plan before preparing the transaction.</li>
+                    </ol>
+                    <p>If Eternl keeps selecting the same account for Baton, disable Forced DApp Account in Eternl first.</p>
+                  </details>
+                </div>
               </div>
 
               {walletAssets.length > 0 && <div className="asset-picker"><div><h3>Tokens and NFTs</h3><p>Select any other Cardano assets you want to protect.</p></div><div className="asset-list">{walletAssets.map((asset) => <label key={asset.unit}><input type="checkbox" checked={protectedTokenUnits.includes(asset.unit)} onChange={() => toggleProtected(asset.unit)} /><span className="mono">{shortHash(asset.unit, 10)}</span><strong>{asset.quantity.toString()}</strong></label>)}</div></div>}

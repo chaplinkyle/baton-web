@@ -71,6 +71,7 @@ type WalletContextValue = {
   connectionActionLabel: string;
   connect: () => Promise<void>;
   cancelConnection: () => void;
+  changeAccount: () => void;
   disconnect: () => void;
   clearError: () => void;
 };
@@ -252,6 +253,22 @@ export function Providers({ children }: { children: ReactNode }) {
     setReconnectSuppressed(true);
   }, []);
 
+  const changeAccount = useCallback(() => {
+    operationVersionRef.current += 1;
+    connectingRef.current = false;
+    setRevalidating(false);
+    reconnectSuppressedRef.current = true;
+    connectedRef.current = false;
+    setConnectionActivity("idle");
+    setConnection(null);
+    setIssue({
+      kind: "account",
+      message:
+        "Open Eternl, select the account you want Baton to use, then return here and reconnect. If Eternl keeps restoring the previous account, disable Forced DApp Account for Baton in Eternl first.",
+    });
+    setReconnectSuppressed(true);
+  }, []);
+
   const clearError = useCallback(() => setIssue(null), []);
 
   useEffect(() => {
@@ -329,6 +346,7 @@ export function Providers({ children }: { children: ReactNode }) {
       ),
       connect,
       cancelConnection,
+      changeAccount,
       disconnect,
       clearError,
     }),
@@ -336,6 +354,7 @@ export function Providers({ children }: { children: ReactNode }) {
       availability,
       clearError,
       cancelConnection,
+      changeAccount,
       connect,
       connection,
       connectionActivity,
