@@ -288,7 +288,7 @@ export default function PlansPage() {
       <section className="plans-list">
         {waitingForWallet && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>{walletProgressTitle}</h2><p>{walletProgressCopy}</p></div>}
         {!waitingForWallet && loading && <div className="plans-empty" role="status"><span aria-hidden="true">B</span><h2>Checking your plans…</h2><p>Baton is comparing locally saved records with confirmed Cardano state.</p></div>}
-        {!waitingForWallet && !loading && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID.</p></div>}
+        {!waitingForWallet && !loading && plans.length === 0 && <div className="plans-empty"><span aria-hidden="true">B</span><h2>No plans found yet</h2><p>Connect the relevant Eternl account, create a plan, or add an older plan below using its transaction ID. If Eternl keeps selecting another account, disable Forced DApp Account for Baton in Eternl.</p></div>}
         {!waitingForWallet && !loading && plans.map((plan) => {
           const active = plan.lifecycle?.kind === "active" ? plan.lifecycle.state : null;
           const status = active

@@ -6,6 +6,7 @@ import {
   type UTxO,
 } from "@lucid-evolution/lucid";
 import { applyVault } from "./contract";
+import { withCardanoReadRetry } from "./cardano-errors";
 import {
   BATON_DISCOVERY_LABEL,
   CARDANO_NETWORK,
@@ -50,6 +51,29 @@ type KoiosMetadataTransaction = {
 type KoiosCredentialTransaction = {
   tx_hash: string;
 };
+
+function koiosReadError(response: Response, fallback: string) {
+  if (response.status === 429) {
+    return new Error("Cardano provider returned 429 Too Many Requests.");
+  }
+  if (response.status === 408 || response.status >= 500) {
+    return new Error(
+      `Cardano provider could not be reached (HTTP ${response.status}).`,
+    );
+  }
+  return new Error(fallback);
+}
+
+async function fetchKoiosRead(
+  request: () => Promise<Response>,
+  fallback: string,
+) {
+  return withCardanoReadRetry(async () => {
+    const response = await request();
+    if (!response.ok) throw koiosReadError(response, fallback);
+    return response;
+  }, 3);
+}
 
 function assetQuantity(assets: KoiosAsset[], unit: string) {
   return assets
@@ -159,18 +183,20 @@ export function recoverManifestFromTransaction(
 
 async function fetchTransactionInfo(txHashes: string[]) {
   if (txHashes.length === 0) return [];
-  const response = await fetch(`${KOIOS_URL}/tx_info`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      _tx_hashes: txHashes,
-      _inputs: true,
-      _assets: true,
-      _metadata: true,
-      _scripts: true,
+  const response = await fetchKoiosRead(
+    () => fetch(`${KOIOS_URL}/tx_info`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        _tx_hashes: txHashes,
+        _inputs: true,
+        _assets: true,
+        _metadata: true,
+        _scripts: true,
+      }),
     }),
-  });
-  if (!response.ok) throw new Error("Cardano did not return the requested plan transactions.");
+    "Cardano did not return the requested plan transactions.",
+  );
   return response.json() as Promise<KoiosCreationTransaction[]>;
 }
 
@@ -236,22 +262,26 @@ export async function discoverWalletManifests(
   )];
   const [walletUtxos, metadataResponse, credentialResponse] = await Promise.all([
     lucid.wallet().getUtxos(),
-    fetch(`${KOIOS_URL}/tx_by_metalabel?_label=${BATON_DISCOVERY_LABEL}`, {
-      headers: { Range: "0-999" },
-      cache: "no-store",
-    }),
-    fetch(`${KOIOS_URL}/credential_txs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Range: "0-999",
-      },
-      body: JSON.stringify({ _payment_credentials: walletCredentials }),
-      cache: "no-store",
-    }),
+    fetchKoiosRead(
+      () => fetch(`${KOIOS_URL}/tx_by_metalabel?_label=${BATON_DISCOVERY_LABEL}`, {
+        headers: { Range: "0-999" },
+        cache: "no-store",
+      }),
+      "Baton could not search Cardano for connected plans.",
+    ),
+    fetchKoiosRead(
+      () => fetch(`${KOIOS_URL}/credential_txs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Range: "0-999",
+        },
+        body: JSON.stringify({ _payment_credentials: walletCredentials }),
+        cache: "no-store",
+      }),
+      "Baton could not search this wallet's Cardano history.",
+    ),
   ]);
-  if (!metadataResponse.ok) throw new Error("Baton could not search Cardano for connected plans.");
-  if (!credentialResponse.ok) throw new Error("Baton could not search this wallet's Cardano history.");
   const indexed = await metadataResponse.json() as KoiosMetadataTransaction[];
   const credentialTransactions = await credentialResponse.json() as KoiosCredentialTransaction[];
   const walletAssets = combineWalletAssets(walletUtxos);

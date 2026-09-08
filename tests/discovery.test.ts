@@ -85,6 +85,35 @@ test("wallet discovery searches the history of every account payment credential"
   }
 });
 
+test("wallet discovery retries a temporary Koios rate limit", async () => {
+  const originalFetch = globalThis.fetch;
+  let metadataCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("tx_by_metalabel")) {
+      metadataCalls += 1;
+      return metadataCalls === 1
+        ? Response.json({ error: "rate limited" }, { status: 429 })
+        : Response.json([]);
+    }
+    if (url.endsWith("/credential_txs")) return Response.json([]);
+    return Response.json({ error: "unexpected test request" }, { status: 500 });
+  };
+  const lucid = {
+    wallet: () => ({ getUtxos: async () => [] }),
+  } as unknown as LucidEvolution;
+
+  try {
+    assert.deepEqual(
+      await discoverWalletManifests(lucid, ownerKeyHash),
+      [],
+    );
+    assert.equal(metadataCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("recovers the live plan from Koios JSON datum when CBOR bytes are omitted", () => {
   const transaction = creationTransaction();
   transaction.outputs[0].inline_datum = {

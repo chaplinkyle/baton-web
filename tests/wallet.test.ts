@@ -296,10 +296,12 @@ test("a wallet session cannot authorize actions while it is being revalidated", 
 });
 
 test("connection refusal uses connection-specific guidance", () => {
-  assert.match(
-    walletErrorMessage({ code: -3, info: "User canceled connection" }),
-    /connection was not approved/i,
-  );
+  const message = walletErrorMessage({
+    code: -3,
+    info: "User canceled connection",
+  });
+  assert.match(message, /connection was not approved/i);
+  assert.match(message, /DApp Allowlist/i);
 });
 
 test("transaction refusal confirms that nothing was submitted", () => {
@@ -324,7 +326,9 @@ test("account changes are detected from CIP-30 codes and provider wording", () =
   assert.equal(isWalletAccountChangeError({ code: -4 }), true);
   assert.equal(isWalletAccountChangeError({ info: "Account has changed" }), true);
   assert.equal(isWalletAccountChangeError({ info: "Network changed" }), false);
-  assert.match(walletErrorMessage({ code: -4 }), /stopped using the previous account/i);
+  const message = walletErrorMessage({ code: -4 });
+  assert.match(message, /stopped using the previous account/i);
+  assert.match(message, /Forced DApp Account/i);
 });
 
 test("unsigned reviews belong to one exact wallet session", () => {

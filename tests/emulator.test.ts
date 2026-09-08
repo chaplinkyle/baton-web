@@ -193,6 +193,22 @@ test("creation, pulse, close, fixed release, and bearer release execute end to e
   assert.equal(createdState.utxo.assets[protectedNft], 1n);
   assert.equal(createdState.utxo.assets[protectedToken], 1_000_000n);
 
+  // Eternl accounts can control more than one HD payment address. Baton must
+  // prepare an action when the required key belongs to the verified account,
+  // even if the wallet's current change address uses another account key.
+  const alternateAddressPulse = await vaultState.buildPulse(
+    lucid,
+    liveManifest,
+    createdState,
+    emulator.now(),
+    [liveManifest.ownerKeyHash, liveManifest.livenessKeyHash],
+  );
+  assertTransactionBudget(alternateAddressPulse, "alternate account-address pulse");
+  await assert.rejects(
+    vaultState.signAndSubmitAction(alternateAddressPulse),
+    "the ledger must still reject a wallet that cannot produce the liveness signature",
+  );
+
   lucid.selectWallet.fromPrivateKey(liveness.privateKey);
   let pulsedState = createdState;
   for (let expectedSequence = 1; expectedSequence <= 5; expectedSequence += 1) {

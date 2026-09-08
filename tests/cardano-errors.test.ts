@@ -47,10 +47,22 @@ test("idempotent Cardano reads retry one transient timeout", async () => {
     calls += 1;
     if (calls === 1) throw new Error("TimeoutException: Operation timed out after '10s'");
     return "ready";
-  });
+  }, 2, 0);
 
   assert.equal(result, "ready");
   assert.equal(calls, 2);
+});
+
+test("idempotent Cardano reads back off through a temporary rate limit", async () => {
+  let calls = 0;
+  const result = await withCardanoReadRetry(async () => {
+    calls += 1;
+    if (calls < 3) throw new Error("Cardano provider returned 429 Too Many Requests.");
+    return "ready";
+  }, 3, 0);
+
+  assert.equal(result, "ready");
+  assert.equal(calls, 3);
 });
 
 test("Cardano read retries do not repeat protocol validation failures", async () => {

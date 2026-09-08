@@ -197,7 +197,10 @@ export async function readConfirmedVault(
   manifest: VaultManifest,
 ): Promise<ConfirmedVaultState> {
   reproduceContract(manifest);
-  const utxo = await lucid.utxoByUnit(manifest.receiptUnit);
+  const utxo = await withCardanoReadRetry(
+    () => lucid.utxoByUnit(manifest.receiptUnit),
+    3,
+  );
   if (!utxo.datum) throw new Error("Receipt UTxO has no inline datum.");
   const clock = decodeStateClock(utxo.datum);
   if (
@@ -242,7 +245,10 @@ export async function readVaultLifecycle(
     return { kind: "active", state: await readConfirmedVault(lucid, manifest) };
   } catch (activeError) {
     try {
-      const utxo = await lucid.utxoByUnit(manifest.terminalReceiptUnit);
+      const utxo = await withCardanoReadRetry(
+        () => lucid.utxoByUnit(manifest.terminalReceiptUnit),
+        3,
+      );
       if (
         utxo.assets[manifest.terminalReceiptUnit] !== 1n ||
         (utxo.assets[manifest.receiptUnit] ?? 0n) !== 0n
@@ -267,6 +273,21 @@ export type ActionReview = {
   newCheckInAt?: number;
 };
 
+/**
+ * Match the complete, already-validated CIP-30 account address set so an HD
+ * address rotation does not hide a legitimate action. This is only an
+ * interface/preparation check: the transaction and validator still require
+ * the exact on-chain signing key.
+ */
+function walletAccountControlsPaymentKey(
+  currentPaymentKeyHash: string,
+  accountPaymentKeyHashes: readonly string[] | undefined,
+  requiredPaymentKeyHash: string,
+) {
+  return currentPaymentKeyHash === requiredPaymentKeyHash ||
+    accountPaymentKeyHashes?.includes(requiredPaymentKeyHash) === true;
+}
+
 function completedReview(
   action: ActionReview["action"],
   draft: TxSignBuilder,
@@ -289,11 +310,20 @@ export async function buildPulse(
   manifest: VaultManifest,
   state: ConfirmedVaultState,
   nowMs = Date.now(),
+  accountPaymentKeyHashes?: readonly string[],
 ) {
   if (nowMs >= state.releaseAtMs) throw new Error("The final release boundary has passed; Pulse is no longer valid.");
   const walletAddress = await lucid.wallet().address();
   const credential = getAddressDetails(walletAddress).paymentCredential;
-  if (!credential || credential.type !== "Key" || credential.hash !== manifest.livenessKeyHash) {
+  if (
+    !credential ||
+    credential.type !== "Key" ||
+    !walletAccountControlsPaymentKey(
+      credential.hash,
+      accountPaymentKeyHashes,
+      manifest.livenessKeyHash,
+    )
+  ) {
     throw new Error("Connected Eternl account is not the configured liveness key.");
   }
   const contract = applyVault(manifest.seed, manifest.receiptName, CARDANO_NETWORK);
@@ -340,11 +370,20 @@ export async function buildClose(
   manifest: VaultManifest,
   state: ConfirmedVaultState,
   nowMs = Date.now(),
+  accountPaymentKeyHashes?: readonly string[],
 ) {
   if (nowMs >= state.releaseAtMs) throw new Error("Owner close is no longer valid after final expiry.");
   const walletAddress = await lucid.wallet().address();
   const credential = getAddressDetails(walletAddress).paymentCredential;
-  if (!credential || credential.type !== "Key" || credential.hash !== manifest.ownerKeyHash) {
+  if (
+    !credential ||
+    credential.type !== "Key" ||
+    !walletAccountControlsPaymentKey(
+      credential.hash,
+      accountPaymentKeyHashes,
+      manifest.ownerKeyHash,
+    )
+  ) {
     throw new Error("Connected Eternl account is not the configured owner key.");
   }
   const contract = applyVault(manifest.seed, manifest.receiptName, CARDANO_NETWORK);

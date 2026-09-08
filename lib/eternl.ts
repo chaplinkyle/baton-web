@@ -221,11 +221,11 @@ export function walletErrorMessage(
   ) {
     return request === "transaction"
       ? "The transaction was canceled in Eternl. Nothing was signed or submitted. Try again when you are ready."
-      : "Connection was not approved in Eternl. Open Eternl, select your Preprod account, approve this site, and try again.";
+      : "Connection was not approved in Eternl. Open Eternl, select your Preprod account, and approve Baton. If no approval window appears, remove Baton from Eternl's DApp Allowlist, reload this page, and try again.";
   }
 
   if (isWalletAccountChangeError(cause)) {
-    return "The Eternl account changed. Baton stopped using the previous account. Reopen Eternl and try again.";
+    return "The Eternl account changed. Baton stopped using the previous account. Reopen Eternl and try again. If it keeps selecting another account, disable Forced DApp Account for Baton in Eternl.";
   }
 
   if (normalized.includes("network")) {

@@ -36,6 +36,7 @@ export function isRetryableCardanoReadError(cause: unknown) {
 export async function withCardanoReadRetry<T>(
   operation: () => Promise<T>,
   attempts = 2,
+  retryDelayMs = 750,
 ) {
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -44,6 +45,11 @@ export async function withCardanoReadRetry<T>(
     } catch (cause) {
       lastError = cause;
       if (attempt === attempts || !isRetryableCardanoReadError(cause)) throw cause;
+      if (retryDelayMs > 0) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, retryDelayMs * 2 ** (attempt - 1));
+        });
+      }
     }
   }
   throw lastError;

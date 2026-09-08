@@ -196,9 +196,21 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
       const fresh = await readConfirmedVault(connection.lucid, manifest);
       const nextReview =
         action === "pulse"
-          ? await buildPulse(connection.lucid, manifest, fresh)
+          ? await buildPulse(
+              connection.lucid,
+              manifest,
+              fresh,
+              Date.now(),
+              connection.paymentKeyHashes,
+            )
           : action === "close"
-            ? await buildClose(connection.lucid, manifest, fresh)
+            ? await buildClose(
+                connection.lucid,
+                manifest,
+                fresh,
+                Date.now(),
+                connection.paymentKeyHashes,
+              )
             : await buildRelease(connection.lucid, manifest, fresh);
       setState(fresh);
       setReview(nextReview);
@@ -369,13 +381,13 @@ export function VaultDashboard({ vaultId }: { vaultId: string }) {
                     ? `The protected value cannot be received before ${formatUtc(state.releaseAtMs)}.`
                     : status === "claimable" && manifest.releaseMode === "bearer"
                       ? "Connect the Eternl account that holds this plan's BATON_RECOVERY token."
-                      : "Switch to the owner or check-in account in Eternl, then reconnect Baton."}</p>
+                      : "Switch to the owner or check-in account in Eternl, then reconnect Baton. If Eternl keeps returning to another account, disable Forced DApp Account for Baton in Eternl."}</p>
               </div>}
             </>}
           </div>
         </section>
 
-        {activeReview && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{activeReview.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{activeReview.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => { setReview(null); setReviewConnection(null); }}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for confirmation…" : "Approve in Eternl"}</button></div></section>}
+        {activeReview && <section className="action-review"><div><p className="eyebrow">REVIEW BEFORE APPROVING</p><h2>{activeReview.action === "pulse" ? "Check in" : activeReview.action === "close" ? "Cancel this plan" : "Complete the handoff"}</h2></div><dl><div><dt>Transaction ID</dt><dd className="mono">{shortHash(activeReview.transactionHash, 14)}</dd></div><div><dt>Cardano network fee</dt><dd>{formatAda(activeReview.feeLovelace)}</dd></div><div><dt>Transaction size</dt><dd>{activeReview.transactionBytes.toLocaleString()} bytes</dd></div><div><dt>Site fee</dt><dd>None</dd></div><div><dt>Protected assets moved</dt><dd>{activeReview.action === "pulse" ? "None" : "Yes—this ends the plan"}</dd></div>{activeReview.newReleaseAt && <><div><dt>Handoff currently available after</dt><dd>{formatUtc(activeReview.currentReleaseAt)}</dd></div><div><dt>New handoff date</dt><dd>{formatUtc(activeReview.newReleaseAt)}</dd></div></>}</dl><div className="form-actions"><button className="button secondary" onClick={() => { setReview(null); setReviewConnection(null); }}>Go back</button><button className="button primary" onClick={signAndSubmit} disabled={busy}>{busy ? "Waiting for Eternl…" : "Approve in Eternl"}</button></div></section>}
 
         {submitted && <div className="success-box" role="status"><span>{submissionConfirmed ? "CONFIRMED ON CARDANO" : "SUBMITTED TO CARDANO"}</span><h3>{submissionConfirmed ? "Your action is complete." : "Waiting for confirmation…"}</h3><a href={`${EXPLORER_URL}/transaction/${submitted}`} target="_blank" rel="noreferrer">View transaction {shortHash(submitted, 14)} ↗</a></div>}
       </>}
